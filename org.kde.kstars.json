@@ -117,6 +117,28 @@
             ]
         },
         {
+            "name": "qtkeychain",
+            "buildsystem": "cmake-ninja",
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/frankosterfeld/qtkeychain/archive/v0.13.2.tar.gz",
+                    "sha256": "20beeb32de7c4eb0af9039b21e18370faf847ac8697ab3045906076afbc4caa5",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 4138,
+                        "stable-only": true,
+                        "url-template": "https://github.com/frankosterfeld/qtkeychain/archive/v$version.tar.gz"
+                    }
+                }
+            ],
+            "config-opts": [
+                "-DCMAKE_INSTALL_LIBDIR=/app/lib",
+                "-DLIB_INSTALL_DIR=/app/lib",
+                "-DBUILD_TRANSLATIONS=NO"
+            ]
+        },
+        {
             "name": "kstars",
             "buildsystem": "cmake-ninja",
             "config-opts": [
