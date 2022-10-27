@@ -91,6 +91,33 @@
             ]
         },
         {
+            "name": "libraw",
+            "builddir": true,
+            "config-opts": [
+                "--disable-examples",
+                "--disable-static"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://www.libraw.org/data/LibRaw-0.21.2.tar.gz",
+                    "sha256": "fe7288013206854baf6e4417d0fb63ba4ed7227bf36fff021992671c2dd34b03",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 1709,
+                        "stable-only": true,
+                        "url-template": "https://www.libraw.org/data/LibRaw-$version.tar.gz"
+                    }
+                },
+                {
+                    "type": "shell",
+                    "commands": [
+                        "autoreconf -vfi"
+                    ]
+                }
+            ]
+        },
+        {
             "name": "kstars",
             "buildsystem": "cmake-ninja",
             "config-opts": [
