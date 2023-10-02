@@ -75,10 +75,6 @@
                         "stable-only": true,
                         "url-template": "https://download.kde.org/stable/kstars/kstars-$version.tar.xz"
                     }
-                },
-                {
-                    "type": "patch",
-                    "path": "qpointer.patch"
                 }
             ]
         }
