@@ -78,8 +78,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.1.0.tar.gz",
-                    "sha256": "b367c695d2831958e7166921c3b356d5dfa51b1ecee505b97416ba39d1b6c17a",
+                    "url": "http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.3.1.tar.gz",
+                    "sha256": "47a7c8ee05687be1e1d8eeeb94fb88f060fbf3cd8a4df52ccb88d5eb0f5062be",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 270,
@@ -99,8 +99,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.libraw.org/data/LibRaw-0.20.2.tar.gz",
-                    "sha256": "dc1b486c2003435733043e4e05273477326e51c3ea554c6864a4eafaff1004a6",
+                    "url": "https://www.libraw.org/data/LibRaw-0.21.2.tar.gz",
+                    "sha256": "fe7288013206854baf6e4417d0fb63ba4ed7227bf36fff021992671c2dd34b03",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 1709,
@@ -143,8 +143,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "http://www.atnf.csiro.au/people/mcalabre/WCS/wcslib-7.12.tar.bz2",
-                    "sha256": "9cf8de50e109a97fa04511d4111e8d14bd0a44077132acf73e6cf0029fe96bd4",
+                    "url": "http://www.atnf.csiro.au/people/mcalabre/WCS/wcslib-8.2.2.tar.bz2",
+                    "sha256": "6298220ae817f4e5522643ac4c3da2623be70a3484b1a4f37060bee3e4bd7833",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7693,
