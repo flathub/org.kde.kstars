@@ -135,6 +135,26 @@
             ]
         },
         {
+            "name": "wcslib",
+            "config-opts": [
+                "LIBS=-pthread -lcurl -lm",
+                "--without-pgplot"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "http://www.atnf.csiro.au/people/mcalabre/WCS/wcslib-7.12.tar.bz2",
+                    "sha256": "9cf8de50e109a97fa04511d4111e8d14bd0a44077132acf73e6cf0029fe96bd4",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 7693,
+                        "stable-only": true,
+                        "url-template": "http://www.atnf.csiro.au/people/mcalabre/WCS/wcslib-$version.tar.bz2"
+                    }
+                }
+            ]
+        },
+        {
             "name": "kstars",
             "buildsystem": "cmake-ninja",
             "config-opts": [
