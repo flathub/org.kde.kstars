@@ -59,6 +59,103 @@
             ]
         },
         {
+            "name": "cfitsio",
+            "buildsystem": "simple",
+            "build-commands": [
+                "sed -e 's|LDFLAGS=.*|LDFLAGS=\"$LDFLAGS\"|g' -i configure.in",
+                "autoreconf -vi",
+                "./configure --prefix=/ --enable-reentrant",
+                "make shared",
+                "make utils",
+                "make DESTDIR=${FLATPAK_DEST} install",
+                "install -D -m644 licenses/* ${FLATPAK_DEST}/share/licenses/cfitsio/LICENSE"
+            ],
+            "cleanup": [
+                "/bin/cookbook",
+                "/bin/smem",
+                "/bin/testprog"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.4.1.tar.gz",
+                    "sha256": "66a1dc3f21800f9eeabd9eac577b91fcdd9aabba678fbba3b8527319110d1d25",
+                    "disable-http-decompression": true,
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 270,
+                        "stable-only": true,
+                        "url-template": "http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-$version.tar.gz"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "libraw",
+            "builddir": true,
+            "config-opts": [
+                "--disable-examples",
+                "--disable-static"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://www.libraw.org/data/LibRaw-0.21.2.tar.gz",
+                    "sha256": "fe7288013206854baf6e4417d0fb63ba4ed7227bf36fff021992671c2dd34b03",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 1709,
+                        "stable-only": true,
+                        "url-template": "https://www.libraw.org/data/LibRaw-$version.tar.gz"
+                    }
+                },
+                {
+                    "type": "shell",
+                    "commands": [
+                        "autoreconf -vfi"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "wcslib",
+            "config-opts": [
+                "LIBS=-pthread -lcurl -lm",
+                "--without-pgplot"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "http://www.atnf.csiro.au/people/mcalabre/WCS/wcslib-8.3.tar.bz2",
+                    "sha256": "431ea3417927bbc02b89bfa3415dc0b4668b0f21a3b46fb8a3525e2fcf614508",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 7693,
+                        "stable-only": true,
+                        "url-template": "http://www.atnf.csiro.au/people/mcalabre/WCS/wcslib-$version.tar.bz2"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "stellarsolver",
+            "buildsystem": "cmake-ninja",
+            "builddir": true,
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/rlancaste/stellarsolver/archive/2.5/stellarsolver-2.5.tar.gz",
+                    "sha256": "539f3c312a3095afc117ae2c3111630f974a1c99dde7b0b7bebf16ee7a862a07",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 242699,
+                        "stable-only": true,
+                        "url-template": "https://github.com/rlancaste/stellarsolver/archive/$version/stellarsolver-$version.tar.gz"
+                    }
+                }
+            ]
+        },
+        {
             "name": "kstars",
             "buildsystem": "cmake-ninja",
             "config-opts": [
@@ -67,18 +164,14 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/kstars-3.6.6.tar.xz",
-                    "sha256": "6783dab51bed2090687910c9258924053381fd1f91ee719d0d3dfc6df0128494",
+                    "url": "https://download.kde.org/stable/kstars/kstars-3.7.0.tar.xz",
+                    "sha256": "caf3759342ea522e4e75bdf8364f143f9aa821b15472f522c844a9a0c2a6baa8",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 229035,
                         "stable-only": true,
                         "url-template": "https://download.kde.org/stable/kstars/kstars-$version.tar.xz"
                     }
-                },
-                {
-                    "type": "patch",
-                    "path": "qpointer.patch"
                 }
             ]
         }
