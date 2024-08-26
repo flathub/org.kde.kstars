@@ -60,16 +60,6 @@
         },
         {
             "name": "cfitsio",
-            "buildsystem": "simple",
-            "build-commands": [
-                "sed -e 's|LDFLAGS=.*|LDFLAGS=\"$LDFLAGS\"|g' -i configure.in",
-                "autoreconf -vi",
-                "./configure --prefix=/ --enable-reentrant",
-                "make shared",
-                "make utils",
-                "make DESTDIR=${FLATPAK_DEST} install",
-                "install -D -m644 licenses/* ${FLATPAK_DEST}/share/licenses/cfitsio/LICENSE"
-            ],
             "cleanup": [
                 "/bin/cookbook",
                 "/bin/smem",
@@ -78,8 +68,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.4.1.tar.gz",
-                    "sha256": "66a1dc3f21800f9eeabd9eac577b91fcdd9aabba678fbba3b8527319110d1d25",
+                    "url": "http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.5.0.tar.gz",
+                    "sha256": "e4854fc3365c1462e493aa586bfaa2f3d0bb8c20b75a524955db64c27427ce09",
                     "disable-http-decompression": true,
                     "x-checker-data": {
                         "type": "anitya",
