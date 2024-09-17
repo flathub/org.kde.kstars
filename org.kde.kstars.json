@@ -154,13 +154,13 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/kstars-3.7.0.tar.xz",
-                    "sha256": "caf3759342ea522e4e75bdf8364f143f9aa821b15472f522c844a9a0c2a6baa8",
+                    "url": "https://download.kde.org/stable/kstars/3.7.2/kstars-3.7.2.tar.xz",
+                    "sha256": "7c4bb7046056e5c82b637f33041de22f4fd246ba1b12d255b0635644db53e34b",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 229035,
                         "stable-only": true,
-                        "url-template": "https://download.kde.org/stable/kstars/kstars-$version.tar.xz"
+                        "url-template": "https://download.kde.org/stable/kstars/$version/kstars-$version.tar.xz"
                     }
                 }
             ]
