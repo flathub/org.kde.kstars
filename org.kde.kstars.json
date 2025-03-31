@@ -154,8 +154,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.7.5/kstars-3.7.5.tar.xz",
-                    "sha256": "2fd87255f76016515f33a3328d1e1b51af3a1473db560ef10563d8f18487517c",
+                    "url": "https://download.kde.org/stable/kstars/3.7.6/kstars-3.7.6.tar.xz",
+                    "sha256": "ea1c163260062899a574bf1e4cb433cc1b2e9a4e6d845a2a1af9b6756934269a",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 229035,
