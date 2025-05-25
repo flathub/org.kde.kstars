@@ -134,8 +134,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/rlancaste/stellarsolver/archive/2.6/stellarsolver-2.6.tar.gz",
-                    "sha256": "1176c1c0144705779e80cbcddcdcde1318b9e9cba889b5ce0f6d77ced66c4733",
+                    "url": "https://github.com/rlancaste/stellarsolver/archive/2.7/stellarsolver-2.7.tar.gz",
+                    "sha256": "36ff495f325920b9a23b7c3f7453a99c8d405e0984d4b27da7568625cb6c76c9",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242699,
