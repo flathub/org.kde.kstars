@@ -130,7 +130,9 @@
         {
             "name": "stellarsolver",
             "buildsystem": "cmake-ninja",
-            "config-opts": ["-DUSE_QT5=OFF"],
+            "config-opts": [
+                "-DUSE_QT5=OFF"
+            ],
             "builddir": true,
             "sources": [
                 {
