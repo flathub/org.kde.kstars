@@ -13,23 +13,12 @@
         "--socket=pulseaudio",
         "--share=network",
         "--device=all",
-        "--filesystem=host",
-        "--system-talk-name=org.freedesktop.PolicyKit1",
         "--system-talk-name=org.bluez",
         "--talk-name=org.freedesktop.Notifications",
-        "--filesystem=xdg-run/dconf",
-        "--filesystem=~/.config/dconf:ro",
-        "--talk-name=ca.desrt.dconf",
-        "--env=DCONF_USER_CONFIG_DIR=.config/dconf",
         "--env=GSCDAT=/app/share/GSC",
         "--filesystem=home",
-        "--talk-name=org.kde.*",
         "--talk-name=org.freedesktop.DBus",
-        "--system-talk-name=org.freedesktop.DBus",
-        "--own-name=org.kde.*",
-        "--system-talk-name=org.freedesktop.UPower",
-        "--system-talk-name=org.freedesktop.login1",
-        "--system-talk-name=org.freedesktop.NetworkManager",
+        "--own-name=org.kde.kstars",
         "--system-talk-name=org.freedesktop.UDisks2"
     ],
     "modules": [
@@ -198,7 +187,7 @@
         },
         {
             "name": "libXISF",
-            "buildsystem": "cmake",
+            "buildsystem": "cmake-ninja",
             "config-opts": [
                 "-DUSE_BUNDLED_ZLIB=OFF"
             ],
@@ -300,7 +289,7 @@
         },
         {
             "name": "limesuite",
-            "buildsystem": "cmake",
+            "buildsystem": "cmake-ninja",
             "builddir": true,
             "config-opts": [
                 "-DCMAKE_INSTALL_PREFIX=/app",
@@ -477,7 +466,7 @@
         },
         {
             "name": "libftdi1",
-            "buildsystem": "cmake",
+            "buildsystem": "cmake-ninja",
             "sources": [
                 {
                     "type": "archive",
@@ -488,7 +477,7 @@
         },
         {
             "name": "indi",
-            "buildsystem": "cmake",
+            "buildsystem": "cmake-ninja",
             "config-opts": [
                 "-DINDI_INSTALL_UDEV_RULES=OFF"
             ],
@@ -508,7 +497,7 @@
         },
         {
             "name": "indi-3rd-party-libraries",
-            "buildsystem": "cmake",
+            "buildsystem": "cmake-ninja",
             "config-opts": [
                 "-DBUILD_LIBS=ON",
                 "-DINDI_INSTALL_UDEV_RULES=OFF",
@@ -530,7 +519,7 @@
         },
         {
             "name": "indi-3rd-party-drivers",
-            "buildsystem": "cmake",
+            "buildsystem": "cmake-ninja",
             "config-opts": [
                 "-DBUILD_LIBS=OFF",
                 "-DCMAKE_PREFIX_PATH=/app",
