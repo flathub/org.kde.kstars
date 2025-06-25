@@ -1,19 +1,14 @@
 {
     "id": "org.kde.kstars",
-    "branch": "stable",
     "runtime": "org.kde.Platform",
     "runtime-version": "6.9",
     "sdk": "org.kde.Sdk",
     "command": "kstars",
     "rename-icon": "kstars",
-    "tags": [
-        "stable",
-        "3.7.7"
-    ],
-    "desktop-file-name-suffix": " (Stable)",
+    "tags": ["stable", "3.7.7"],
     "finish-args": [
         "--share=ipc",
-        "--socket=x11",
+        "--socket=fallback-x11",
         "--socket=wayland",
         "--socket=pulseaudio",
         "--share=network",
@@ -62,8 +57,14 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://cgit.git.savannah.gnu.org/cgit/gsl.git/snapshot/gsl-release-2-8.tar.gz",
-                    "sha256": "9a8905b4d07ce8cda5b97ad8bdb40e953f31e55b6ebe406a5b8a1213e754ca05"
+                    "url": "https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz",
+                    "sha256": "6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 1267,
+                        "stable-only": true,
+                        "url-template": "https://ftp.gnu.org/gnu/gsl/gsl-$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -75,7 +76,13 @@
                 {
                     "type": "archive",
                     "url": "https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.2.0.tar.gz",
-                    "sha256": "eba53d1b3f6e345632bb09a7b752ec7ced3d63ec5153a848380f3880c5d61889"
+                    "sha256": "eba53d1b3f6e345632bb09a7b752ec7ced3d63ec5153a848380f3880c5d61889",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 270,
+                        "stable-only": true,
+                        "url-template": "https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -99,7 +106,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/rlancaste/stellarsolver/archive/refs/tags/2.7.tar.gz",
-                    "sha256": "36ff495f325920b9a23b7c3f7453a99c8d405e0984d4b27da7568625cb6c76c9"
+                    "sha256": "36ff495f325920b9a23b7c3f7453a99c8d405e0984d4b27da7568625cb6c76c9",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 242699,
+                        "stable-only": true,
+                        "url-template": "https://github.com/rlancaste/stellarsolver/archive/refs/tags/$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -109,7 +122,13 @@
                 {
                     "type": "archive",
                     "url": "https://dist.schmorp.de/libev/Attic/libev-4.33.tar.gz",
-                    "sha256": "507eb7b8d1015fbec5b935f34ebed15bf346bed04a11ab82b8eee848c4205aea"
+                    "sha256": "507eb7b8d1015fbec5b935f34ebed15bf346bed04a11ab82b8eee848c4205aea",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 1605,
+                        "stable-only": true,
+                        "url-template": "https://dist.schmorp.de/libev/Attic/libev-$version.tar.gz"
+                    }
                 }
             ],
             "buildsystem": "autotools"
@@ -138,7 +157,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/libusb/libusb/releases/download/v1.0.26/libusb-1.0.26.tar.bz2",
-                    "sha256": "12ce7a61fc9854d1d2a1ffe095f7b5fac19ddba095c259e6067a46500381b5a5"
+                    "sha256": "12ce7a61fc9854d1d2a1ffe095f7b5fac19ddba095c259e6067a46500381b5a5",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 1749,
+                        "stable-only": true,
+                        "url-template": "https://github.com/libusb/libusb/releases/download/$version/libusb-$version.tar.bz2"
+                    }
                 }
             ]
         },
@@ -149,7 +174,13 @@
                 {
                     "type": "archive",
                     "url": "https://www.libraw.org/data/LibRaw-0.21.4.tar.gz",
-                    "sha256": "6be43f19397e43214ff56aab056bf3ff4925ca14012ce5a1538a172406a09e63"
+                    "sha256": "6be43f19397e43214ff56aab056bf3ff4925ca14012ce5a1538a172406a09e63",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 1709,
+                        "stable-only": true,
+                        "url-template": "https://www.libraw.org/data/LibRaw-$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -186,7 +217,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/libconfuse/libconfuse/releases/download/v3.3/confuse-3.3.tar.xz",
-                    "sha256": "1dd50a0320e135a55025b23fcdbb3f0a81913b6d0b0a9df8cc2fdf3b3dc67010"
+                    "sha256": "1dd50a0320e135a55025b23fcdbb3f0a81913b6d0b0a9df8cc2fdf3b3dc67010",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 1581,
+                        "stable-only": true,
+                        "url-template": "https://github.com/libconfuse/libconfuse/releases/download/$version/confuse-$version.tar.xz"
+                    }
                 }
             ]
         },
@@ -197,7 +234,13 @@
                 {
                     "type": "archive",
                     "url": "https://deac-riga.dl.sourceforge.net/project/libdc1394/libdc1394-2/2.2.6/libdc1394-2.2.6.tar.gz?viasf=1",
-                    "sha256": "2b905fc9aa4eec6bdcf6a2ae5f5ba021232739f5be047dec8fe8dd6049c10fed"
+                    "sha256": "2b905fc9aa4eec6bdcf6a2ae5f5ba021232739f5be047dec8fe8dd6049c10fed",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 1591,
+                        "stable-only": true,
+                        "url-template": "https://deac-riga.dl.sourceforge.net/project/libdc1394/libdc1394-2/$version/libdc1394-$version.tar.gz?viasf=1"
+                    }
                 }
             ]
         },
@@ -208,7 +251,13 @@
                 {
                     "type": "archive",
                     "url": "https://www.kernel.org/pub/linux/libs/ieee1394/libraw1394-2.1.2.tar.xz",
-                    "sha256": "03ccc69761d22c7deb1127fc301010dd13e70e44bb7134b8ff0d07590259a55e"
+                    "sha256": "03ccc69761d22c7deb1127fc301010dd13e70e44bb7134b8ff0d07590259a55e",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 1710,
+                        "stable-only": true,
+                        "url-template": "https://www.kernel.org/pub/linux/libs/ieee1394/libraw1394-$version.tar.xz"
+                    }
                 }
             ]
         },
@@ -222,7 +271,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/libgd/libgd/releases/download/gd-2.3.3/libgd-2.3.3.tar.gz",
-                    "sha256": "dd3f1f0bb016edcc0b2d082e8229c822ad1d02223511997c80461481759b1ed2"
+                    "sha256": "dd3f1f0bb016edcc0b2d082e8229c822ad1d02223511997c80461481759b1ed2",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 880,
+                        "stable-only": true,
+                        "url-template": "https://github.com/libgd/libgd/releases/download/gd-$version/libgd-$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -233,7 +288,13 @@
                 {
                     "type": "archive",
                     "url": "https://master.dl.sourceforge.net/project/gphoto/libgphoto/2.5.31/libgphoto2-2.5.31.tar.gz?viasf=1",
-                    "sha256": "4c5aabdaa9b98e4924403388b934041930a98976f71d5ae08e0d7512151fcb0f"
+                    "sha256": "4c5aabdaa9b98e4924403388b934041930a98976f71d5ae08e0d7512151fcb0f",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 12558,
+                        "stable-only": true,
+                        "url-template": "https://master.dl.sourceforge.net/project/gphoto/libgphoto/$version/libgphoto2-$version.tar.gz?viasf=1"
+                    }
                 }
             ]
         },
@@ -249,7 +310,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/myriadrf/LimeSuite/archive/refs/tags/v23.11.0.tar.gz",
-                    "sha256": "fd8a448b92bc5ee4012f0ba58785f3c7e0a4d342b24e26275318802dfe00eb33"
+                    "sha256": "fd8a448b92bc5ee4012f0ba58785f3c7e0a4d342b24e26275318802dfe00eb33",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 14710,
+                        "stable-only": true,
+                        "url-template": "https://github.com/myriadrf/LimeSuite/archive/refs/tags/$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -285,7 +352,13 @@
                 {
                     "type": "archive",
                     "url": "https://download.savannah.gnu.org/releases/gpsd/gpsd-3.26.1.tar.gz",
-                    "sha256": "dc7e465968c1540e61bc57c7586d6a57a0047212a014efdad348f907bc2e0990"
+                    "sha256": "dc7e465968c1540e61bc57c7586d6a57a0047212a014efdad348f907bc2e0990",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 6846,
+                        "stable-only": true,
+                        "url-template": "hhttps://download.savannah.gnu.org/releases/gpsd/gpsd-$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -296,7 +369,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz",
-                    "sha256": "6653ef5910f17954861fe72332e68b03ca6e4d9c7160eb3a8de5a5a913bfab43"
+                    "sha256": "6653ef5910f17954861fe72332e68b03ca6e4d9c7160eb3a8de5a5a913bfab43",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 16245,
+                        "stable-only": true,
+                        "url-template": "https://github.com/zeromq/libzmq/releases/download/$version/zeromq-$version.tar.gz"
+                    }
                 }
             ],
             "config-opts": [
@@ -339,7 +418,13 @@
                 {
                     "type": "archive",
                     "url": "https://download.gnome.org/sources/libsecret/0.20/libsecret-0.20.5.tar.xz",
-                    "sha256": "3fb3ce340fcd7db54d87c893e69bfc2b1f6e4d4b279065ffe66dac9f0fd12b4d"
+                    "sha256": "3fb3ce340fcd7db54d87c893e69bfc2b1f6e4d4b279065ffe66dac9f0fd12b4d",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 13150,
+                        "stable-only": true,
+                        "url-template": "https://download.gnome.org/sources/libsecret/$version/libsecret-$version.tar.xz"
+                    }
                 }
             ]
         },
@@ -355,7 +440,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/frankosterfeld/qtkeychain/archive/refs/tags/0.15.0.tar.gz",
-                    "sha256": "f4254dc8f0933b06d90672d683eab08ef770acd8336e44dfa030ce041dc2ca22"
+                    "sha256": "f4254dc8f0933b06d90672d683eab08ef770acd8336e44dfa030ce041dc2ca22",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 4138,
+                        "stable-only": true,
+                        "url-template": "https://github.com/frankosterfeld/qtkeychain/archive/refs/tags/$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -374,7 +465,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/opencv/opencv/archive/4.11.0.tar.gz",
-                    "sha256": "9a7c11f924eff5f8d8070e297b322ee68b9227e003fd600d4b8122198091665f"
+                    "sha256": "9a7c11f924eff5f8d8070e297b322ee68b9227e003fd600d4b8122198091665f",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 6615,
+                        "stable-only": true,
+                        "url-template": "https://github.com/opencv/opencv/archive/$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -399,7 +496,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.4.tar.gz",
-                    "sha256": "c93294865c20fd9e3355898851f6a1ecce481789c00a01a9aba59e40ac28b7f5"
+                    "sha256": "c93294865c20fd9e3355898851f6a1ecce481789c00a01a9aba59e40ac28b7f5",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 6838,
+                        "stable-only": true,
+                        "url-template": "https://github.com/indilib/indi/archive/refs/tags/$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -415,7 +518,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.4.tar.gz",
-                    "sha256": "e9ab43d08d09555d2c9d3c658d1bcc3130c3465a3afe2300995fba0d6e737080"
+                    "sha256": "e9ab43d08d09555d2c9d3c658d1bcc3130c3465a3afe2300995fba0d6e737080",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 242076,
+                        "stable-only": true,
+                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -432,7 +541,13 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.4.tar.gz",
-                    "sha256": "e9ab43d08d09555d2c9d3c658d1bcc3130c3465a3afe2300995fba0d6e737080"
+                    "sha256": "e9ab43d08d09555d2c9d3c658d1bcc3130c3465a3afe2300995fba0d6e737080",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 242076,
+                        "stable-only": true,
+                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
+                    }
                 }
             ]
         },
@@ -447,7 +562,13 @@
                 {
                     "type": "archive",
                     "url": "https://download.kde.org/stable/kstars/3.7.7/kstars-3.7.7.tar.xz",
-                    "sha256": "f2dbd6c26c45512aa7c3924f0bf0606a8ef978e468c54505dcc0cb2fe1200245"
+                    "sha256": "f2dbd6c26c45512aa7c3924f0bf0606a8ef978e468c54505dcc0cb2fe1200245",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 229035,
+                        "stable-only": true,
+                        "url-template": "https://download.kde.org/stable/kstars/$version/kstars-$version.tar.xz"
+                    }
                 }
             ]
         }
