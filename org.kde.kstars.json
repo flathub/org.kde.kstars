@@ -1,7 +1,7 @@
 {
     "id": "org.kde.kstars",
     "runtime": "org.kde.Platform",
-    "runtime-version": "5.15-24.08",
+    "runtime-version": "6.9",
     "sdk": "org.kde.Sdk",
     "command": "kstars",
     "rename-icon": "kstars",
@@ -130,6 +130,9 @@
         {
             "name": "stellarsolver",
             "buildsystem": "cmake-ninja",
+            "config-opts": [
+                "-DUSE_QT5=OFF"
+            ],
             "builddir": true,
             "sources": [
                 {
@@ -149,7 +152,9 @@
             "name": "kstars",
             "buildsystem": "cmake-ninja",
             "config-opts": [
-                "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+                "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+                "-DBUILD_TESTING=OFF",
+                "-DBUILD_QT5=OFF"
             ],
             "sources": [
                 {
