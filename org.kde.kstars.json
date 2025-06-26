@@ -19,6 +19,13 @@
         "--talk-name=org.freedesktop.DBus",
         "--system-talk-name=org.freedesktop.UDisks2"
     ],
+    "cleanup": [
+        "/include",
+        "/lib/pkgconfig",
+        "/lib/*.a",
+        "/lib/*.la",
+        "/share/man"
+    ],
     "modules": [
         {
             "name": "eigen",
@@ -62,7 +69,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.2.0.tar.gz",
+                    "url": "https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.6.2.tar.gz",
                     "sha256": "eba53d1b3f6e345632bb09a7b752ec7ced3d63ec5153a848380f3880c5d61889",
                     "x-checker-data": {
                         "type": "anitya",
@@ -125,7 +132,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://netix.dl.sourceforge.net/project/libnova/libnova/v%200.15.0/libnova-0.15.0.tar.gz?viasf=1",
+                    "url": "https://downloads.sourceforge.net/sourceforge/libnova/libnova-0.15.0.tar.gz",
+                    
                     "sha256": "7c5aa33e45a3e7118d77df05af7341e61784284f1e8d0d965307f1663f415bb1"
                 }
             ],
@@ -220,13 +228,13 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://deac-riga.dl.sourceforge.net/project/libdc1394/libdc1394-2/2.2.6/libdc1394-2.2.6.tar.gz?viasf=1",
+                    "url": "https://deac-riga.dl.sourceforge.net/project/libdc1394/libdc1394-2/2.2.6/libdc1394-2.2.6.tar.gz",
                     "sha256": "2b905fc9aa4eec6bdcf6a2ae5f5ba021232739f5be047dec8fe8dd6049c10fed",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 1591,
                         "stable-only": true,
-                        "url-template": "https://deac-riga.dl.sourceforge.net/project/libdc1394/libdc1394-2/$version/libdc1394-$version.tar.gz?viasf=1"
+                        "url-template": "https://deac-riga.dl.sourceforge.net/project/libdc1394/libdc1394-2/$version/libdc1394-$version.tar.gz"
                     }
                 }
             ]
@@ -274,13 +282,13 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://master.dl.sourceforge.net/project/gphoto/libgphoto/2.5.31/libgphoto2-2.5.31.tar.gz?viasf=1",
+                    "url": "https://master.dl.sourceforge.net/project/gphoto/libgphoto/2.5.31/libgphoto2-2.5.31.tar.gz",
                     "sha256": "4c5aabdaa9b98e4924403388b934041930a98976f71d5ae08e0d7512151fcb0f",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 12558,
                         "stable-only": true,
-                        "url-template": "https://master.dl.sourceforge.net/project/gphoto/libgphoto/$version/libgphoto2-$version.tar.gz?viasf=1"
+                        "url-template": "https://master.dl.sourceforge.net/project/gphoto/libgphoto/$version/libgphoto2-$version.tar.gz"
                     }
                 }
             ]
@@ -290,7 +298,6 @@
             "buildsystem": "cmake-ninja",
             "builddir": true,
             "config-opts": [
-                "-DCMAKE_INSTALL_PREFIX=/app",
                 "-DCMAKE_BUILD_TYPE=Release"
             ],
             "sources": [
@@ -308,24 +315,28 @@
             ]
         },
         {
-            "name": "scons",
-            "buildsystem": "simple",
-            "build-commands": [
-                "export SETUPTOOLS_DISABLE_VERSIONED_EASY_INSTALL_SCRIPT=1",
-                "python3 setup.py install --prefix=/app --single-version-externally-managed --root=/",
-                "printf '#!/usr/bin/env python3\\nfrom SCons.Script import main\\nmain()\\n' > /app/bin/scons",
-                "chmod +x /app/bin/scons"
-            ],
-            "sources": [
-                {
-                    "type": "archive",
-                    "url": "https://files.pythonhosted.org/packages/c8/c1/30176c76c1ef723fab62e5cdb15d3c972427a146cb6f868748613d7b25af/scons-4.9.1.tar.gz",
-                    "sha256": "bacac880ba2e86d6a156c116e2f8f2bfa82b257046f3ac2666c85c53c615c338"
-                }
-            ]
-        },
-        {
             "name": "gpsd",
+            "modules": [
+                {
+                    "name": "scons",
+                    "buildsystem": "simple",
+                    "sources": [
+                        {
+                            "type": "archive",
+                            "url": "http://download.sourceforge.net/scons/scons-3.1.2.tar.gz",
+                            "sha256": "7801f3f62f654528e272df780be10c0e9337e897650b62ddcee9f39fde13f8fb"
+                        }
+                    ],
+                    "build-commands": [
+                          "python3 setup.py install --prefix=/app"
+                    ],
+                    "cleanup": [
+                          "/include",
+                          "/lib/scons-*",
+                          "/bin/scons*"
+                    ]
+                }
+            ],
             "buildsystem": "simple",
             "builddir": true,
             "build-commands": [
@@ -344,7 +355,7 @@
                         "type": "anitya",
                         "project-id": 6846,
                         "stable-only": true,
-                        "url-template": "hhttps://download.savannah.gnu.org/releases/gpsd/gpsd-$version.tar.gz"
+                        "url-template": "https://download.savannah.gnu.org/releases/gpsd/gpsd-$version.tar.gz"
                     }
                 }
             ]
@@ -379,18 +390,6 @@
             ]
         },
         {
-            "name": "qt6-qtcharts",
-            "buildsystem": "cmake-ninja",
-            "builddir": true,
-            "sources": [
-                {
-                    "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtcharts/-/archive/v6.9.0/qtcharts-v6.9.0.tar.gz",
-                    "sha256": "6d4510b3ed26f72cff113907bae414cf2607d40114cecfa9338158689eedcaf5"
-                }
-            ]
-        },
-        {
             "name": "libsecret",
             "buildsystem": "meson",
             "config-opts": [
@@ -417,7 +416,6 @@
             "buildsystem": "cmake-ninja",
             "builddir": true,
             "config-opts": [
-                "-DCMAKE_PREFIX_PATH=/app",
                 "-DBUILD_WITH_QT6=ON"
             ],
             "sources": [
@@ -439,7 +437,6 @@
             "buildsystem": "cmake-ninja",
             "builddir": true,
             "config-opts": [
-                "-DCMAKE_INSTALL_PREFIX=/app",
                 "-DBUILD_LIST=core,imgproc,highgui,imgcodecs,videoio",
                 "-DBUILD_EXAMPLES=OFF",
                 "-DBUILD_TESTS=OFF",
@@ -517,7 +514,6 @@
             "buildsystem": "cmake-ninja",
             "config-opts": [
                 "-DBUILD_LIBS=OFF",
-                "-DCMAKE_PREFIX_PATH=/app",
                 "-DINDI_INSTALL_UDEV_RULES=OFF",
                 "-DINDI_INSTALL_FIRMWARE=OFF"
             ],
