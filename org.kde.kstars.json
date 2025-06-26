@@ -63,6 +63,11 @@
         },
         {
             "name": "cfitsio",
+            "cleanup": [
+                "/bin/cookbook",
+                "/bin/smem",
+                "/bin/testprog"
+            ],
             "buildsystem": "cmake-ninja",
             "builddir": true,
             "sources": [
