@@ -13,7 +13,6 @@
         "--share=network",
         "--device=all",
         "--system-talk-name=org.bluez",
-        "--talk-name=org.freedesktop.Notifications",
         "--env=GSCDAT=/app/share/GSC",
         "--filesystem=home",
         "--talk-name=org.freedesktop.DBus",
