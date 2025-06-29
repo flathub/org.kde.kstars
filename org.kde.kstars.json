@@ -15,7 +15,6 @@
         "--system-talk-name=org.bluez",
         "--env=GSCDAT=/app/share/GSC",
         "--filesystem=home",
-        "--talk-name=org.freedesktop.DBus",
         "--system-talk-name=org.freedesktop.UDisks2"
     ],
     "cleanup": [
@@ -74,7 +73,7 @@
                 {
                     "type": "archive",
                     "url": "https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio-4.6.2.tar.gz",
-                    "sha256": "eba53d1b3f6e345632bb09a7b752ec7ced3d63ec5153a848380f3880c5d61889",
+                    "sha256": "66fd078cc0bea896b0d44b120d46d6805421a5361d3a5ad84d9f397b1b5de2cb",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 270,
@@ -335,9 +334,7 @@
                           "python3 setup.py install --prefix=/app"
                     ],
                     "cleanup": [
-                          "/include",
-                          "/lib/scons-*",
-                          "/bin/scons*"
+                          "*"
                     ]
                 }
             ],
