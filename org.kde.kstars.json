@@ -7,15 +7,20 @@
     "rename-icon": "kstars",
     "finish-args": [
         "--share=ipc",
+        "--share=network",
+        "--device=all",
         "--socket=fallback-x11",
         "--socket=wayland",
         "--socket=pulseaudio",
-        "--share=network",
-        "--device=all",
         "--system-talk-name=org.bluez",
+        "--system-talk-name=org.freedesktop.UDisks2",
         "--env=GSCDAT=/app/share/GSC",
-        "--filesystem=home",
-        "--system-talk-name=org.freedesktop.UDisks2"
+        "--filesystem=/usr/share/astrometry:ro",
+        "--filesystem=/usr/share/hips:ro",
+        "--filesystem=xdg-pictures",
+        "--filesystem=xdg-videos",
+        "--filesystem=xdg-documents",
+        "--filesystem=~/.indi:create"
     ],
     "cleanup": [
         "/include",
