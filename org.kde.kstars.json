@@ -296,7 +296,7 @@
                         "type": "anitya",
                         "project-id": 12558,
                         "stable-only": true,
-                        "url-template": "https://master.dl.sourceforge.net/project/gphoto/libgphoto/$version/libgphoto2-$version.tar.gz"
+                        "url-template": "https://downloads.sourceforge.net/project/gphoto/libgphoto/$version/libgphoto2-$version.tar.gz"
                     }
                 }
             ]
