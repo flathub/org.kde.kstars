@@ -290,7 +290,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://master.dl.sourceforge.net/project/gphoto/libgphoto/2.5.31/libgphoto2-2.5.31.tar.gz",
+                    "url": "https://downloads.sourceforge.net/project/gphoto/libgphoto/2.5.31/libgphoto2-2.5.31.tar.gz",
                     "sha256": "4c5aabdaa9b98e4924403388b934041930a98976f71d5ae08e0d7512151fcb0f",
                     "x-checker-data": {
                         "type": "anitya",
