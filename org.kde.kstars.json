@@ -279,13 +279,13 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://downloads.sourceforge.net/project/gphoto/libgphoto/2.5.31/libgphoto2-2.5.31.tar.gz",
-                    "sha256": "4c5aabdaa9b98e4924403388b934041930a98976f71d5ae08e0d7512151fcb0f",
+                    "url": "https://github.com/gphoto/libgphoto2/releases/download/v2.5.31/libgphoto2-2.5.31.tar.bz2",
+                    "sha256": "4f81c34c0b812bee67afd5f144940fbcbe01a2055586a6a1fa2d0626024a545b",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 12558,
                         "stable-only": true,
-                        "url-template": "https://downloads.sourceforge.net/project/gphoto/libgphoto/$version/libgphoto2-$version.tar.gz"
+                        "url-template": "https://github.com/gphoto/libgphoto2/releases/download/v$version/libgphoto2-$version.tar.bz2"
                     }
                 }
             ]
