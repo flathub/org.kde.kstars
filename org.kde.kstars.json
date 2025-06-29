@@ -242,7 +242,7 @@
                         "type": "anitya",
                         "project-id": 1591,
                         "stable-only": true,
-                        "url-template": "https://deac-riga.dl.sourceforge.net/project/libdc1394/libdc1394-2/$version/libdc1394-$version.tar.gz"
+                        "url-template": "https://downloads.sourceforge.net/project/libdc1394/libdc1394-2/$version/libdc1394-$version.tar.gz"
                     }
                 }
             ]
