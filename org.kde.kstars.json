@@ -15,8 +15,6 @@
         "--system-talk-name=org.bluez",
         "--system-talk-name=org.freedesktop.UDisks2",
         "--env=GSCDAT=/app/share/GSC",
-        "--filesystem=/usr/share/astrometry:ro",
-        "--filesystem=/usr/share/hips:ro",
         "--filesystem=xdg-pictures",
         "--filesystem=xdg-videos",
         "--filesystem=xdg-documents",
@@ -30,10 +28,15 @@
         "/share/man"
     ],
     "modules": [
+        "shared-modules/libusb/libusb.json",
         {
             "name": "eigen",
             "buildsystem": "cmake-ninja",
             "builddir": true,
+            "cleanup":
+            [
+                "*"
+            ],
             "sources": [
                 {
                     "type": "archive",
@@ -50,7 +53,6 @@
         },
         {
             "name": "gsl",
-            "buildsystem": "autotools",
             "sources": [
                 {
                     "type": "archive",
@@ -90,7 +92,6 @@
         },
         {
             "name": "wcslib",
-            "buildsystem": "autotools",
             "sources": [
                 {
                     "type": "archive",
@@ -132,8 +133,7 @@
                         "url-template": "https://dist.schmorp.de/libev/Attic/libev-$version.tar.gz"
                     }
                 }
-            ],
-            "buildsystem": "autotools"
+            ]
         },
         {
             "name": "libnova",
@@ -154,25 +154,12 @@
             ]
         },
         {
-            "name": "libusb",
-            "buildsystem": "autotools",
-            "sources": [
-                {
-                    "type": "archive",
-                    "url": "https://github.com/libusb/libusb/releases/download/v1.0.26/libusb-1.0.26.tar.bz2",
-                    "sha256": "12ce7a61fc9854d1d2a1ffe095f7b5fac19ddba095c259e6067a46500381b5a5",
-                    "x-checker-data": {
-                        "type": "anitya",
-                        "project-id": 1749,
-                        "stable-only": true,
-                        "url-template": "https://github.com/libusb/libusb/releases/download/$version/libusb-$version.tar.bz2"
-                    }
-                }
-            ]
-        },
-        {
             "name": "libraw",
-            "buildsystem": "autotools",
+            "builddir": true,
+            "config-opts": [
+                "--disable-examples",
+                "--disable-static"
+            ],
             "sources": [
                 {
                     "type": "archive",
@@ -184,6 +171,12 @@
                         "stable-only": true,
                         "url-template": "https://www.libraw.org/data/LibRaw-$version.tar.gz"
                     }
+                },
+                {
+                    "type": "shell",
+                    "commands": [
+                        "autoreconf -vfi"
+                    ]
                 }
             ]
         },
@@ -215,7 +208,6 @@
         },
         {
             "name": "libconfuse",
-            "buildsystem": "autotools",
             "sources": [
                 {
                     "type": "archive",
@@ -232,7 +224,6 @@
         },
         {
             "name": "libdc1394",
-            "buildsystem": "autotools",
             "sources": [
                 {
                     "type": "archive",
@@ -249,7 +240,6 @@
         },
         {
             "name": "libraw1394",
-            "buildsystem": "autotools",
             "sources": [
                 {
                     "type": "archive",
@@ -286,7 +276,6 @@
         },
         {
             "name": "libgphoto",
-            "buildsystem": "autotools",
             "sources": [
                 {
                     "type": "archive",
@@ -368,7 +357,6 @@
         },
         {
             "name": "zeromq",
-            "buildsystem": "autotools",
             "sources": [
                 {
                     "type": "archive",
