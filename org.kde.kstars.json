@@ -12,13 +12,11 @@
         "--socket=fallback-x11",
         "--socket=wayland",
         "--socket=pulseaudio",
-        "--system-talk-name=org.bluez",
-        "--system-talk-name=org.freedesktop.UDisks2",
         "--env=GSCDAT=/app/share/GSC",
         "--filesystem=xdg-pictures",
         "--filesystem=xdg-videos",
         "--filesystem=xdg-documents",
-        "--filesystem=~/.indi:create"
+        "--filesystem=~/.indi"
     ],
     "cleanup": [
         "/include",
@@ -143,14 +141,13 @@
                     "url": "https://downloads.sourceforge.net/sourceforge/libnova/libnova-0.15.0.tar.gz",
                     
                     "sha256": "7c5aa33e45a3e7118d77df05af7341e61784284f1e8d0d965307f1663f415bb1"
+                },
+                {
+                    "type": "shell",
+                    "commands": [
+                        "autoreconf -vfi"
+                    ]
                 }
-            ],
-            "buildsystem": "simple",
-            "build-commands": [
-                "autoreconf -fi",
-                "./configure --prefix=/app",
-                "make",
-                "make install"
             ]
         },
         {
