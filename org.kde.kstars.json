@@ -304,8 +304,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/gphoto/libgphoto2/releases/download/v2.5.31/libgphoto2-2.5.31.tar.bz2",
-                    "sha256": "4f81c34c0b812bee67afd5f144940fbcbe01a2055586a6a1fa2d0626024a545b",
+                    "url": "https://github.com/gphoto/libgphoto2/releases/download/v2.5.32/libgphoto2-2.5.32.tar.bz2",
+                    "sha256": "02b29ab0bcfceda1c7f81c75ec7cb5e64d329cf4b8fd0fcd5bc5a89ff09561bc",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 12558,
@@ -403,8 +403,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.9.0/qtdatavis3d-v6.9.0.tar.gz",
-                    "sha256": "b504d5da10832eb6dfae85956c4ae0d3aa77d99d3be471e001cfcb8c828809a5",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.9.1/qtdatavis3d-v6.9.1.tar.gz",
+                    "sha256": "2f741953df8675f56a91b88102c7826d6dc4fbe8139d0f4191efede529c7c12e",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
