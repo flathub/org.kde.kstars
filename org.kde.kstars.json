@@ -507,7 +507,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.4.tar.gz",
+                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.5.tar.gz",
                     "sha256": "c93294865c20fd9e3355898851f6a1ecce481789c00a01a9aba59e40ac28b7f5",
                     "x-checker-data": {
                         "type": "anitya",
@@ -529,7 +529,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.4.tar.gz",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.5.tar.gz",
                     "sha256": "e9ab43d08d09555d2c9d3c658d1bcc3130c3465a3afe2300995fba0d6e737080",
                     "x-checker-data": {
                         "type": "anitya",
@@ -551,7 +551,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.4.tar.gz",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.5.tar.gz",
                     "sha256": "e9ab43d08d09555d2c9d3c658d1bcc3130c3465a3afe2300995fba0d6e737080",
                     "x-checker-data": {
                         "type": "anitya",
@@ -572,7 +572,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.7.7/kstars-3.7.7.tar.xz",
+                    "url": "https://download.kde.org/stable/kstars/3.7.8/kstars-3.7.8.tar.xz",
                     "sha256": "f2dbd6c26c45512aa7c3924f0bf0606a8ef978e468c54505dcc0cb2fe1200245",
                     "x-checker-data": {
                         "type": "anitya",
