@@ -403,8 +403,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.9.0/qtdatavis3d-v6.9.0.tar.gz",
-                    "sha256": "b504d5da10832eb6dfae85956c4ae0d3aa77d99d3be471e001cfcb8c828809a5",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.9.1/qtdatavis3d-v6.9.1.tar.gz",
+                    "sha256": "2f741953df8675f56a91b88102c7826d6dc4fbe8139d0f4191efede529c7c12e",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
@@ -572,8 +572,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.7.7/kstars-3.7.7.tar.xz",
-                    "sha256": "f2dbd6c26c45512aa7c3924f0bf0606a8ef978e468c54505dcc0cb2fe1200245",
+                    "url": "https://download.kde.org/stable/kstars/3.7.8/kstars-3.7.8.tar.xz",
+                    "sha256": "55b3aef29ec1aba50906bd393d565e8a7e0b5b3a5d2e8e3cdfc1b58d718d2c0c",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 229035,
