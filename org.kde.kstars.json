@@ -488,11 +488,11 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/getsentry/sentry-native/archive/refs/tags/0.11.2.tar.gz",
-                    "sha256": "10411e20406826bc4337f8e99225707450891629a835427891248e8a11d375f4",
+                    "url": "https://github.com/getsentry/sentry-native/archive/refs/tags/0.10.1.tar.gz",
+                    "sha256": "29937d907ec9f8acc6531e64c2dc9bacb4a6cd32c65f5c327574474c934d93f5",
                     "x-checker-data": {
                         "type": "anitya",
-                        "project-id": 14622,
+                        "project-id": 135639,
                         "stable-only": true,
                         "url-template": "https://github.com/getsentry/sentry-native/archive/refs/tags/$version.tar.gz"
                     }
