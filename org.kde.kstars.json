@@ -482,7 +482,7 @@
             "buildsystem": "cmake-ninja",
             "builddir": true,
             "config-opts": [
-                "-DSENTRY_BACKEND=crashpad",
+                "-DSENTRY_BACKEND=breakpad",
                 "-DBUILD_SHARED_LIBS=ON"
             ],
             "sources": [
