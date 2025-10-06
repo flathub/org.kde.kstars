@@ -12,6 +12,7 @@
         "--filesystem=xdg-pictures",
         "--filesystem=xdg-videos",
         "--filesystem=~/.indi",
+        "--filesystem=~/.cache/sentry",
         "--share=ipc",
         "--share=network",
         "--socket=fallback-x11",
@@ -477,6 +478,28 @@
             ]
         },
         {
+            "name": "sentry-native",
+            "buildsystem": "cmake-ninja",
+            "builddir": true,
+            "config-opts": [
+                "-DSENTRY_BACKEND=crashpad",
+                "-DBUILD_SHARED_LIBS=ON"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/getsentry/sentry-native/archive/refs/tags/0.11.2.tar.gz",
+                    "sha256": "10411e20406826bc4337f8e99225707450891629a835427891248e8a11d375f4",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 14622,
+                        "stable-only": true,
+                        "url-template": "https://github.com/getsentry/sentry-native/archive/refs/tags/$version.tar.gz"
+                    }
+                }
+            ]
+        },
+        {
             "name": "indi",
             "buildsystem": "cmake-ninja",
             "config-opts": [
@@ -485,8 +508,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.5.tar.gz",
-                    "sha256": "c7b4603691de6b239e87cf75a1624602943c1b0d0a47cfe781002dcb3dc73b0f",
+                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.6.tar.gz",
+                    "sha256": "3da9bf4e7cc8524d4550ef9626d7e139b40e636143720e3af39e7ba109218bfc",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6838,
@@ -507,8 +530,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.5.tar.gz",
-                    "sha256": "3bad853c8a45b96a805c13c33ed71a553e58038aa7d4eac7307a0c4aac4510cc",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.6.tar.gz",
+                    "sha256": "a02159706b633d6ab92aa234930ed2a8c8cf08189bc9e09f2cf808dc52ec0a6b",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -529,8 +552,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.5.tar.gz",
-                    "sha256": "3bad853c8a45b96a805c13c33ed71a553e58038aa7d4eac7307a0c4aac4510cc",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.6.tar.gz",
+                    "sha256": "a02159706b633d6ab92aa234930ed2a8c8cf08189bc9e09f2cf808dc52ec0a6b",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -545,7 +568,8 @@
             "buildsystem": "cmake-ninja",
             "config-opts": [
                 "-DBUILD_TESTING=OFF",
-                "-DBUILD_WITH_QT6=ON"
+                "-DBUILD_WITH_QT6=ON",
+                "-DENABLE_SENTRY=ON"
             ],
             "sources": [
                 {
