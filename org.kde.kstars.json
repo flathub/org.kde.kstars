@@ -482,20 +482,14 @@
             "buildsystem": "cmake-ninja",
             "builddir": true,
             "config-opts": [
-                "-DSENTRY_BACKEND=breakpad",
+                "-DSENTRY_BACKEND=crashpad",
                 "-DBUILD_SHARED_LIBS=ON"
             ],
             "sources": [
                 {
-                    "type": "archive",
-                    "url": "https://github.com/getsentry/sentry-native/archive/refs/tags/0.10.1.tar.gz",
-                    "sha256": "29937d907ec9f8acc6531e64c2dc9bacb4a6cd32c65f5c327574474c934d93f5",
-                    "x-checker-data": {
-                        "type": "anitya",
-                        "project-id": 135639,
-                        "stable-only": true,
-                        "url-template": "https://github.com/getsentry/sentry-native/archive/refs/tags/$version.tar.gz"
-                    }
+                    "type": "git",
+                    "url": "https://github.com/getsentry/sentry-native.git",
+                    "tag": "0.10.1"
                 }
             ]
         },
