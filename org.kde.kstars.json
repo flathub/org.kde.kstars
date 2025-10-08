@@ -524,7 +524,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.6.tar.gz",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.6.1.tar.gz",
                     "sha256": "a02159706b633d6ab92aa234930ed2a8c8cf08189bc9e09f2cf808dc52ec0a6b",
                     "x-checker-data": {
                         "type": "anitya",
@@ -546,7 +546,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.6.tar.gz",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.6.1.tar.gz",
                     "sha256": "a02159706b633d6ab92aa234930ed2a8c8cf08189bc9e09f2cf808dc52ec0a6b",
                     "x-checker-data": {
                         "type": "anitya",
