@@ -17,7 +17,8 @@
         "--share=network",
         "--socket=fallback-x11",
         "--socket=pulseaudio",
-        "--socket=wayland"
+        "--socket=wayland",
+        "--allow=devel"
     ],
     "cleanup": [
         "/include",
