@@ -477,6 +477,24 @@
             ]
         },
         {
+            "name": "rpicam-apps",
+            "buildsystem": "meson",
+            "only-arches": ["aarch64"],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/raspberrypi/rpicam-apps/archive/refs/tags/v1.9.1.tar.gz",
+                    "sha256": "04ddfa37c707b751248481aaf992da7e3f4a319930a46a3d5b37d9b858d7806a",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 383756,
+                        "stable-only": true,
+                        "url-template": "https://github.com/raspberrypi/rpicam-apps/archive/refs/tags/v$version.tar.gz"
+                    }
+                }
+            ]
+        },
+        {
             "name": "indi",
             "buildsystem": "cmake-ninja",
             "config-opts": [
@@ -538,7 +556,17 @@
                         "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
                     }
                 }
-            ]
+            ],
+            "arch": {
+                "aarch64": {
+                    "config-opts": [
+                        "-DBUILD_LIBS=OFF",
+                        "-DINDI_INSTALL_UDEV_RULES=OFF",
+                        "-DINDI_INSTALL_FIRMWARE=OFF",
+                        "-DWITH_LIBCAMERA=ON"
+                    ]
+                }
+            }
         },
         {
             "name": "kstars",
