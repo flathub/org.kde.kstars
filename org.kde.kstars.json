@@ -405,8 +405,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.9.2/qtdatavis3d-v6.9.2.tar.gz",
-                    "sha256": "f52df8ed65b5b84f5a7565bd9f68926de841ce65561000f359e74c4d400cb0da",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.0/qtdatavis3d-v6.10.0.tar.gz",
+                    "sha256": "827518719d9efa3c7a8521ac89c22fa1a95cf1a8d4401fd3826feaec95a9e77f",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
