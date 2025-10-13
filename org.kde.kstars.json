@@ -477,6 +477,24 @@
             ]
         },
         {
+            "name": "libcamera",
+            "buildsystem": "meson",
+            "only-arches": ["aarch64"],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/raspberrypi/libcamera/archive/refs/tags/v0.5.2+rpt20250903.tar.gz",
+                    "sha256": "d9c9b60484667a3f19e49ae4e226045ecaaa0848ffb10e73e80b295f21e10bd8",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 386188,
+                        "stable-only": true,
+                        "url-template": "https://github.com/raspberrypi/libcamera/archive/refs/tags/v$version.tar.gz"
+                    }
+                }
+            ]
+        },
+        {
             "name": "rpicam-apps",
             "buildsystem": "meson",
             "only-arches": ["aarch64"],
