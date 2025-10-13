@@ -537,8 +537,9 @@
             ]
         },
         {
-            "name": "indi-3rd-party-drivers",
+            "name": "indi-3rd-party-drivers-x86_64",
             "buildsystem": "cmake-ninja",
+            "only-arches": ["x86_64"],
             "config-opts": [
                 "-DBUILD_LIBS=OFF",
                 "-DINDI_INSTALL_UDEV_RULES=OFF",
@@ -556,17 +557,31 @@
                         "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
                     }
                 }
+            ]
+        },
+        {
+            "name": "indi-3rd-party-drivers-aarch64",
+            "buildsystem": "cmake-ninja",
+            "only-arches": ["aarch64"],
+            "config-opts": [
+                "-DBUILD_LIBS=OFF",
+                "-DINDI_INSTALL_UDEV_RULES=OFF",
+                "-DINDI_INSTALL_FIRMWARE=OFF",
+                "-DWITH_LIBCAMERA=ON"
             ],
-            "arch": {
-                "aarch64": {
-                    "config-opts": [
-                        "-DBUILD_LIBS=OFF",
-                        "-DINDI_INSTALL_UDEV_RULES=OFF",
-                        "-DINDI_INSTALL_FIRMWARE=OFF",
-                        "-DWITH_LIBCAMERA=ON"
-                    ]
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.5.tar.gz",
+                    "sha256": "3bad853c8a45b96a805c13c33ed71a553e58038aa7d4eac7307a0c4aac4510cc",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 242076,
+                        "stable-only": true,
+                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
+                    }
                 }
-            }
+            ]
         },
         {
             "name": "kstars",
