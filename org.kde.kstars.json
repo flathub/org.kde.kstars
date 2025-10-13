@@ -481,7 +481,6 @@
         {
             "name": "libcamera",
             "buildsystem": "meson",
-            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "archive",
@@ -499,7 +498,6 @@
         {
             "name": "rpicam-apps",
             "buildsystem": "meson",
-            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "archive",
@@ -573,32 +571,8 @@
             ]
         },
         {
-            "name": "indi-3rd-party-drivers-x86_64",
+            "name": "indi-3rd-party-drivers",
             "buildsystem": "cmake-ninja",
-            "only-arches": ["x86_64"],
-            "config-opts": [
-                "-DBUILD_LIBS=OFF",
-                "-DINDI_INSTALL_UDEV_RULES=OFF",
-                "-DINDI_INSTALL_FIRMWARE=OFF"
-            ],
-            "sources": [
-                {
-                    "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.6.1.tar.gz",
-                    "sha256": "e18933be21f7df1a44f45e26e65f385847a52fa0f635eb0245fa623e089215b0",
-                    "x-checker-data": {
-                        "type": "anitya",
-                        "project-id": 242076,
-                        "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
-                    }
-                }
-            ]
-        },
-        {
-            "name": "indi-3rd-party-drivers-aarch64",
-            "buildsystem": "cmake-ninja",
-            "only-arches": ["aarch64"],
             "config-opts": [
                 "-DBUILD_LIBS=OFF",
                 "-DINDI_INSTALL_UDEV_RULES=OFF",
