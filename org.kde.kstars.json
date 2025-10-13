@@ -479,6 +479,23 @@
             ]
         },
         {
+            "name": "libpisp",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/raspberrypi/libpisp/archive/refs/tags/v1.2.1.tar.gz",
+                    "sha256": "bb4088fc96ca23c29541f0e6e8478463bd7182b13c16d61b3e8d826158315c09",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 378526,
+                        "stable-only": true,
+                        "url-template": "https://github.com/raspberrypi/libpisp/archive/refs/tags/v$version.tar.gz"
+                    }
+                }
+            ]
+        },
+        {
             "name": "libcamera",
             "buildsystem": "meson",
             "sources": [
