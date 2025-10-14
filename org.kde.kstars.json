@@ -481,6 +481,7 @@
         {
             "name": "nlohmann_json",
             "buildsystem": "cmake-ninja",
+            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "archive",
@@ -492,6 +493,7 @@
         {
             "name": "libpisp",
             "buildsystem": "meson",
+            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "archive",
@@ -507,8 +509,71 @@
             ]
         },
         {
+            "name": "googletest",
+            "buildsystem": "cmake-ninja",
+            "only-arches": ["aarch64"],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/google/googletest/archive/refs/tags/v1.17.0.tar.gz",
+                    "sha256": "65fab701d9829d38cb77c14acdc431d2108bfdbf8979e40eb8ae567edf10b27c"
+                }
+            ]
+        },
+        {
+            "name": "python3-deps",
+            "buildsystem": "simple",
+            "only-arches": ["aarch64"],
+            "build-commands": [
+                "pip3 install --no-deps --no-cache-dir --prefix=/app --ignore-installed jinja2-3.1.6-py3-none-any.whl",
+                "pip3 install --no-deps --no-cache-dir --prefix=/app --ignore-installed setuptools-80.9.0-py3-none-any.whl",
+                "pip3 install --no-deps --no-cache-dir --prefix=/app --ignore-installed wheel-0.45.1-py3-none-any.whl",
+                "pip3 install --no-deps --no-cache-dir --prefix=/app --ignore-installed --no-build-isolation pyyaml-6.0.3.tar.gz",
+                "pip3 install --no-deps --no-cache-dir --prefix=/app --ignore-installed ply-3.11-py2.py3-none-any.whl"
+            ],
+            "sources": [
+                {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl",
+                    "sha256": "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
+                },
+                {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl",
+                    "sha256": "062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922"
+                },
+                {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/0b/2c/87f3254fd8ffd29e4c02732eee68a83a1d3c346ae39bc6822dcbcb697f2b/wheel-0.45.1-py3-none-any.whl",
+                    "sha256": "708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248"
+                },
+                {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz",
+                    "sha256": "d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f"
+                },
+                {
+                    "type": "file",
+                    "url": "https://files.pythonhosted.org/packages/a3/58/35da89ee790598a0700ea49b2a66594140f44dec458c07e8e3d4979137fc/ply-3.11-py2.py3-none-any.whl",
+                    "sha256": "096f9b8350b65ebd2fd1346b12452efe5b9607f7482813ffca50c22722a807ce"
+                }
+            ]
+        },
+        {
             "name": "libcamera",
             "buildsystem": "meson",
+            "only-arches": ["aarch64"],
+            "config-opts": [
+                "-Dgstreamer=disabled",
+                "-Dpipelines=rpi/vc4,rpi/pisp",
+                "-Dipas=rpi/vc4,rpi/pisp",
+                "-Dv4l2=true",
+                "-Dtest=false",
+                "-Dlc-compliance=disabled",
+                "-Dcam=disabled",
+                "-Dqcam=disabled",
+                "-Ddocumentation=disabled"
+            ],
             "sources": [
                 {
                     "type": "archive",
@@ -524,8 +589,25 @@
             ]
         },
         {
+            "name": "boost",
+            "buildsystem": "simple",
+            "only-arches": ["aarch64"],
+            "build-commands": [
+                "./bootstrap.sh --prefix=/app --with-libraries=filesystem,system,program_options,thread",
+                "./b2 install -j6"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://archives.boost.io/release/1.89.0/source/boost_1_89_0_rc1.tar.gz",
+                    "sha256": "9de758db755e8330a01d995b0a24d09798048400ac25c03fc5ea9be364b13c93"
+                }
+            ]
+        },
+        {
             "name": "rpicam-apps",
             "buildsystem": "meson",
+            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "archive",
