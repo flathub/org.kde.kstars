@@ -608,6 +608,7 @@
             "name": "rpicam-apps",
             "buildsystem": "meson",
             "only-arches": ["aarch64"],
+            "build-commands": ["-Dpipelines=all"],
             "sources": [
                 {
                     "type": "archive",
