@@ -521,6 +521,17 @@
             ]
         },
         {
+            "name": "libyuv",
+            "buildsystem": "cmake-ninja",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://chromium.googlesource.com/libyuv/libyuv.git",
+                    "branch": "main"
+                }
+            ]
+        },
+        {
             "name": "python3-deps",
             "buildsystem": "simple",
             "only-arches": ["aarch64"],
