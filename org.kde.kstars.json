@@ -523,11 +523,12 @@
         {
             "name": "libyuv",
             "buildsystem": "cmake-ninja",
+            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "git",
                     "url": "https://chromium.googlesource.com/libyuv/libyuv.git",
-                    "tag": "stable"
+                    "tag": "main"
                 }
             ]
         },
