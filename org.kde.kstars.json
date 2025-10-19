@@ -527,7 +527,7 @@
                 {
                     "type": "git",
                     "url": "https://chromium.googlesource.com/libyuv/libyuv.git",
-                    "branch": "stable"
+                    "tag": "stable"
                 }
             ]
         },
