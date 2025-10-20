@@ -648,7 +648,7 @@
                 {
                     "type": "archive",
                     "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.6.tar.gz",
-                    "sha256": "3da9bf4e7cc8524d4550ef9626d7e139b40e636143720e3af39e7ba109218bfc",
+                    "sha256": "c57403bf4478f5ff6264cb6643e960ed6f96658bdf40eda7eca35abc372c9a05",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6838,
