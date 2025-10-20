@@ -616,15 +616,9 @@
             "config-opts": ["-Denable_libav=disabled"],
             "sources": [
                 {
-                    "type": "archive",
-                    "url": "https://github.com/raspberrypi/rpicam-apps/archive/refs/tags/v1.9.1.tar.gz",
-                    "sha256": "04ddfa37c707b751248481aaf992da7e3f4a319930a46a3d5b37d9b858d7806a",
-                    "x-checker-data": {
-                        "type": "anitya",
-                        "project-id": 383756,
-                        "stable-only": true,
-                        "url-template": "https://github.com/raspberrypi/rpicam-apps/archive/refs/tags/v$version.tar.gz"
-                    }
+                    "type": "git",
+                    "url": "https://github.com/knro/libcamera-apps.git",
+                    "tag": "fix-rpi-features"
                 }
             ]
         },
