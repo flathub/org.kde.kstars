@@ -481,7 +481,6 @@
         {
             "name": "nlohmann_json",
             "buildsystem": "cmake-ninja",
-            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "archive",
@@ -493,7 +492,6 @@
         {
             "name": "libpisp",
             "buildsystem": "meson",
-            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "archive",
@@ -511,7 +509,6 @@
         {
             "name": "googletest",
             "buildsystem": "cmake-ninja",
-            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "archive",
@@ -523,7 +520,6 @@
         {
             "name": "libyuv",
             "buildsystem": "cmake-ninja",
-            "only-arches": ["aarch64"],
             "sources": [
                 {
                     "type": "git",
@@ -535,7 +531,6 @@
         {
             "name": "python3-deps",
             "buildsystem": "simple",
-            "only-arches": ["aarch64"],
             "build-commands": [
                 "pip3 install --no-deps --no-cache-dir --prefix=/app --ignore-installed jinja2-3.1.6-py3-none-any.whl",
                 "pip3 install --no-deps --no-cache-dir --prefix=/app --ignore-installed setuptools-80.9.0-py3-none-any.whl",
@@ -574,7 +569,6 @@
         {
             "name": "libcamera",
             "buildsystem": "meson",
-            "only-arches": ["aarch64"],
             "config-opts": [
                 "-Dgstreamer=disabled",
                 "-Dpipelines=rpi/vc4,rpi/pisp",
@@ -604,7 +598,6 @@
         {
             "name": "boost",
             "buildsystem": "simple",
-            "only-arches": ["aarch64"],
             "build-commands": [
                 "./bootstrap.sh --prefix=/app --with-libraries=filesystem,system,program_options,thread",
                 "./b2 install -j6"
@@ -620,7 +613,7 @@
         {
             "name": "rpicam-apps",
             "buildsystem": "meson",
-            "only-arches": ["aarch64"],
+            "config-opts": ["-Denable_libav=disabled"],
             "sources": [
                 {
                     "type": "archive",
