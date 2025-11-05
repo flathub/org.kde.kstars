@@ -39,7 +39,7 @@
                 {
                     "type": "archive",
                     "url": "https://gitlab.com/libeigen/eigen/-/archive/5.0.0/eigen-5.0.0.tar.bz2",
-                    "sha256": "960e78eb99f5887663c98ac6ebb27b6d9600040b2fca8c8c19f39dd5bbb55453",
+                    "sha256": "bdca0ec740fb83be21fe038699923f4c589ead9ab904f4058a9c97752e60d50b",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 666,
