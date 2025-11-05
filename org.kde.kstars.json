@@ -28,7 +28,6 @@
         "/share/man"
     ],
     "modules": [
-        "shared-modules/libusb/libusb.json",
         {
             "name": "eigen",
             "buildsystem": "cmake-ninja",
