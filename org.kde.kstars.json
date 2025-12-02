@@ -39,8 +39,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://gitlab.com/libeigen/eigen/-/archive/5.0.0/eigen-5.0.0.tar.bz2",
-                    "sha256": "bdca0ec740fb83be21fe038699923f4c589ead9ab904f4058a9c97752e60d50b",
+                    "url": "https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.bz2",
+                    "sha256": "e4de6b08f33fd8b8985d2f204381408c660bffa6170ac65b68ae1bd3cd575c0a",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 666,
@@ -306,8 +306,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/gphoto/libgphoto2/releases/download/v2.5.32/libgphoto2-2.5.32.tar.bz2",
-                    "sha256": "02b29ab0bcfceda1c7f81c75ec7cb5e64d329cf4b8fd0fcd5bc5a89ff09561bc",
+                    "url": "https://github.com/gphoto/libgphoto2/releases/download/v2.5.33/libgphoto2-2.5.33.tar.bz2",
+                    "sha256": "c55504e725cf44b6ca67e1cd7504ad36dc98d7a0469a9e8d627fd0fb3848aa1d",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 12558,
@@ -371,8 +371,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.savannah.gnu.org/releases/gpsd/gpsd-3.26.1.tar.gz",
-                    "sha256": "dc7e465968c1540e61bc57c7586d6a57a0047212a014efdad348f907bc2e0990",
+                    "url": "https://download.savannah.gnu.org/releases/gpsd/gpsd-3.27.tar.gz",
+                    "sha256": "6195292dd7910be68cb7018d45166283eaefd3f9db9773fcd6e9a78d49eac999",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6846,
@@ -405,8 +405,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.9.2/qtdatavis3d-v6.9.2.tar.gz",
-                    "sha256": "f52df8ed65b5b84f5a7565bd9f68926de841ce65561000f359e74c4d400cb0da",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.1/qtdatavis3d-v6.10.1.tar.gz",
+                    "sha256": "44781df0a9ca47554e63dc3bd175e87f49b2ec04dbe562f01908cfca66f14f7e",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
@@ -569,8 +569,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.0/kstars-3.8.0.tar.xz",
-                    "sha256": "9e907499a6087406601c1559a90f6551ef557ef4642371355929c6ed12188dee",
+                    "url": "https://download.kde.org/stable/kstars/3.7.9/kstars-3.7.9.tar.xz",
+                    "sha256": "684da0b401b32c171493e1de83e64e30b775c17e9511bad2a719161139a51197",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 229035,
