@@ -201,8 +201,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/ikarustechnologies/gsc/archive/refs/tags/1.0.0.tar.gz",
-                    "sha256": "00f3293f41cc0ae00690d466c733f1d8b27628e366d9994326a22305b026737f",
+                    "url": "https://github.com/ikarustechnologies/gsc/archive/refs/tags/1.0.1.tar.gz",
+                    "sha256": "3c1d389cc04d2b72c02f03733dbd84f8912f3dbb4fc7e45ad696d6eaa95aad7a",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 378968,
