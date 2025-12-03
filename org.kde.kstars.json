@@ -502,8 +502,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.6.tar.gz",
-                    "sha256": "3da9bf4e7cc8524d4550ef9626d7e139b40e636143720e3af39e7ba109218bfc",
+                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.7.tar.gz",
+                    "sha256": "1ab6697847eae635873f4270ae200ef5331c87844f52733d4ad201aad0919192",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6838,
@@ -524,8 +524,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.6.1.tar.gz",
-                    "sha256": "e18933be21f7df1a44f45e26e65f385847a52fa0f635eb0245fa623e089215b0",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.7.tar.gz",
+                    "sha256": "4d1e3ee713af1bac2e86627d5fed3c542187f2246168f195b3ec802607c71e8b",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -546,8 +546,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.6.1.tar.gz",
-                    "sha256": "e18933be21f7df1a44f45e26e65f385847a52fa0f635eb0245fa623e089215b0",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.7.tar.gz",
+                    "sha256": "4d1e3ee713af1bac2e86627d5fed3c542187f2246168f195b3ec802607c71e8b",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -568,8 +568,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.7.9/kstars-3.7.9.tar.xz",
-                    "sha256": "684da0b401b32c171493e1de83e64e30b775c17e9511bad2a719161139a51197",
+                    "url": "https://download.kde.org/stable/kstars/3.8.0/kstars-3.8.0.tar.xz",
+                    "sha256": "9e907499a6087406601c1559a90f6551ef557ef4642371355929c6ed12188dee",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 229035,
