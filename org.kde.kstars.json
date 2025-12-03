@@ -326,13 +326,13 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/myriadrf/LimeSuite/archive/refs/tags/v23.11.0.tar.gz",
-                    "sha256": "fd8a448b92bc5ee4012f0ba58785f3c7e0a4d342b24e26275318802dfe00eb33",
+                    "url": "https://github.com/knro/LimeSuite/archive/refs/tags/25.12.03.tar.gz",
+                    "sha256": "3da940b7cc04de6f994d37f4c5273be8f49c5e025066d03dce1f991bd489b20f",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 14710,
                         "stable-only": true,
-                        "url-template": "https://github.com/myriadrf/LimeSuite/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/knro/LimeSuite/archive/refs/tags/$version.tar.gz"
                     }
                 }
             ]
