@@ -370,8 +370,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.savannah.gnu.org/releases/gpsd/gpsd-3.26.1.tar.gz",
-                    "sha256": "dc7e465968c1540e61bc57c7586d6a57a0047212a014efdad348f907bc2e0990",
+                    "url": "https://download.savannah.gnu.org/releases/gpsd/gpsd-3.27.tar.gz",
+                    "sha256": "845099a3b1abfb343025ce9108ded31b80307df28a275a6fef4d93032628fec7",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6846,
@@ -404,8 +404,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.0/qtdatavis3d-v6.10.0.tar.gz",
-                    "sha256": "827518719d9efa3c7a8521ac89c22fa1a95cf1a8d4401fd3826feaec95a9e77f",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.1/qtdatavis3d-v6.10.1.tar.gz",
+                    "sha256": "44781df0a9ca47554e63dc3bd175e87f49b2ec04dbe562f01908cfca66f14f7e",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
