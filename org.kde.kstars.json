@@ -177,8 +177,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.libraw.org/data/LibRaw-0.21.4.tar.gz",
-                    "sha256": "6be43f19397e43214ff56aab056bf3ff4925ca14012ce5a1538a172406a09e63",
+                    "url": "https://www.libraw.org/data/LibRaw-0.21.5.tar.gz",
+                    "sha256": "20ecfa6aad943d383ab3f66d303727ef542b042cbba2bb7ddaeff0bb2e9ff916",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 1709,
@@ -404,8 +404,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.0/qtdatavis3d-v6.10.0.tar.gz",
-                    "sha256": "827518719d9efa3c7a8521ac89c22fa1a95cf1a8d4401fd3826feaec95a9e77f",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.1/qtdatavis3d-v6.10.1.tar.gz",
+                    "sha256": "44781df0a9ca47554e63dc3bd175e87f49b2ec04dbe562f01908cfca66f14f7e",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
