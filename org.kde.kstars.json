@@ -571,6 +571,7 @@
                     "url": "https://download.kde.org/stable/kstars/3.8.0/kstars-3.8.0.tar.xz",
                     "sha256": "9e907499a6087406601c1559a90f6551ef557ef4642371355929c6ed12188dee",
                     "x-checker-data": {
+                        "is-main-source": true,
                         "type": "anitya",
                         "project-id": 229035,
                         "stable-only": true,
