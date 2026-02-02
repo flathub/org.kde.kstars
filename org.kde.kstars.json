@@ -568,8 +568,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.0/kstars-3.8.0.tar.xz",
-                    "sha256": "9e907499a6087406601c1559a90f6551ef557ef4642371355929c6ed12188dee",
+                    "url": "https://download.kde.org/stable/kstars/3.8.1/kstars-3.8.1.tar.xz",
+                    "sha256": "d5fe3421d0738ca57676dd5366d2302c4fa2bee3e46f418c58cd36033d126aea",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
