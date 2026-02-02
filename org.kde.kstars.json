@@ -568,14 +568,14 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.1/kstars-3.8.1.tar.xz",
-                    "sha256": "d5fe3421d0738ca57676dd5366d2302c4fa2bee3e46f418c58cd36033d126aea",
+                    "url": "https://invent.kde.org/education/kstars/-/archive/stable-3.8.1/kstars-stable-3.8.1.tar.bz2",
+                    "sha256": "a5e1469ad7d2fe048e1a1a1017ee0a896ea772186515600549dc46be46e18fc9",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
                         "project-id": 229035,
                         "stable-only": true,
-                        "url-template": "https://download.kde.org/stable/kstars/$version/kstars-$version.tar.xz"
+                        "url-template": "https://invent.kde.org/education/kstars/-/archive/stable-$version/kstars-stable-$version.tar.bz2"
                     }
                 }
             ]
