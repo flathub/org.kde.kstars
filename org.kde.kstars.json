@@ -494,6 +494,17 @@
             ]
         },
         {
+            "name": "xplanet",
+            "buildsystem": "cmake-ninja",
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/knro/xplanet/archive/refs/tags/1.3.0.tar.gz",
+                    "sha256": "bf5993c617b7ac626e026e953a113de499b565d3bb1bb65f1b697f9710fee45e"
+                }
+            ]
+        },
+        {
             "name": "indi",
             "buildsystem": "cmake-ninja",
             "config-opts": [
@@ -524,8 +535,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.8.1.tar.gz",
-                    "sha256": "c80662e3f79d9753fcfbcbbd19a7296a1e92678b9297a486a77c6407e9522f73",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.8.2.tar.gz",
+                    "sha256": "8cb8dfb48bd2205c3e3327b844be6ba306e96b02780270155c198afa102ba700",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -546,8 +557,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.8.1.tar.gz",
-                    "sha256": "c80662e3f79d9753fcfbcbbd19a7296a1e92678b9297a486a77c6407e9522f73",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.8.2.tar.gz",
+                    "sha256": "8cb8dfb48bd2205c3e3327b844be6ba306e96b02780270155c198afa102ba700",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
