@@ -495,7 +495,7 @@
         },
         {
             "name": "xplanet",
-            "buildsystem": "cmake-ninja",
+            "buildsystem": "autotools",
             "sources": [
                 {
                     "type": "archive",
