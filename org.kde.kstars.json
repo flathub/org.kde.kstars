@@ -495,12 +495,12 @@
         },
         {
             "name": "xplanet",
-            "buildsystem": "autotools",
+            "buildsystem": "cmake-ninja",
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/knro/xplanet/archive/refs/tags/1.3.0.tar.gz",
-                    "sha256": "bf5993c617b7ac626e026e953a113de499b565d3bb1bb65f1b697f9710fee45e"
+                    "url": "https://github.com/knro/xplanet/archive/refs/tags/1.3.1.tar.gz",
+                    "sha256": "c862f695af5580ae854b1dbd46aa5790ae566f974c7025e1fcbc66f9ce118b61"
                 }
             ]
         },
