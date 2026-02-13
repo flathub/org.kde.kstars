@@ -516,8 +516,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.8.tar.gz",
-                    "sha256": "2beeaf18dcf418c84559958b63cc5e03bd095adf783cf7cc24b0b9d5be0de894",
+                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.9.tar.gz",
+                    "sha256": "54f9a2192d53d7b698c0a3c3c360ee1bac8b78f5a4f0234f3e9f7dec4ea81bf9",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6838,
