@@ -22,9 +22,12 @@
     ],
     "cleanup": [
         "/include",
+        "/lib/cmake",
         "/lib/pkgconfig",
         "/lib/*.a",
         "/lib/*.la",
+        "/mkspecs",
+        "/share/doc",
         "/share/man"
     ],
     "modules": [
