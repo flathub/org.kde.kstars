@@ -538,8 +538,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.9.tar.gz",
-                    "sha256": "4c9bbd6864175b1384c5aaf1bb21ca6ec3e95189ee900231b77e0a7b9c5cae16",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.9.1.tar.gz",
+                    "sha256": "9c23304b5c88e6a05570c96ba10096e3ad9ead7abf6ea588dde61dbae8b79558",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -560,8 +560,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.9.tar.gz",
-                    "sha256": "4c9bbd6864175b1384c5aaf1bb21ca6ec3e95189ee900231b77e0a7b9c5cae16",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.9.1.tar.gz",
+                    "sha256": "9c23304b5c88e6a05570c96ba10096e3ad9ead7abf6ea588dde61dbae8b79558",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -595,6 +595,10 @@
                 {
                     "type": "patch",
                     "path": "stable-3.8.1-fixes.patch"
+                },
+                {
+                    "type": "patch",
+                    "path": "auto-focus_fix.patch"
                 }
             ]
         }
