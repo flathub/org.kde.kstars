@@ -1,0 +1,12 @@
+--- a/camlibs/ptp2/library.c
++++ b/camlibs/ptp2/library.c
+@@ -382,8 +382,8 @@
+ 
+ 	/* Canon EOS */
+ 	if (	di->VendorExtensionID == PTP_VENDOR_CANON &&
+-		ptp_operation_issupported(params, PTP_OC_CANON_EOS_GetDeviceInfoEx) &&
+-		params->eos_captureenabled
++		ptp_operation_issupported(params, PTP_OC_CANON_EOS_GetDeviceInfoEx &&
++		params->eos_captureenabled)
+ 	) {
+ 		PTPCanonEOSDeviceInfo x;
