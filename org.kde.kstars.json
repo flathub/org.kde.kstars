@@ -101,8 +101,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.atnf.csiro.au/computing/software/wcs/wcslib-releases/wcslib-8.5.tar.bz2",
-                    "sha256": "f1fd1b78fbfdbabda363f8045e0c59e32735eca45482a5302191e56fe062eace",
+                    "url": "https://www.atnf.csiro.au/computing/software/wcs/wcslib-releases/wcslib-8.6.tar.bz2",
+                    "sha256": "e030423605a199ef090fe742bc901a82d9e6b3a77e010e211cdd6d2cd067cd5a",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7693,
@@ -181,8 +181,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.libraw.org/data/LibRaw-0.21.4.tar.gz",
-                    "sha256": "6be43f19397e43214ff56aab056bf3ff4925ca14012ce5a1538a172406a09e63",
+                    "url": "https://www.libraw.org/data/LibRaw-0.22.0.tar.gz",
+                    "sha256": "1071e6e8011593c366ffdadc3d3513f57c90202d526e133174945ec1dd53f2a1",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 1709,
@@ -378,8 +378,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.savannah.gnu.org/releases/gpsd/gpsd-3.26.1.tar.gz",
-                    "sha256": "dc7e465968c1540e61bc57c7586d6a57a0047212a014efdad348f907bc2e0990",
+                    "url": "https://download.savannah.gnu.org/releases/gpsd/gpsd-3.27.5.tar.gz",
+                    "sha256": "409873f5048462ef1ac413a51ab35caa8b50b31be62b3347bee1cc2994e7c649",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6846,
@@ -412,8 +412,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.0/qtdatavis3d-v6.10.0.tar.gz",
-                    "sha256": "827518719d9efa3c7a8521ac89c22fa1a95cf1a8d4401fd3826feaec95a9e77f",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.11.0/qtdatavis3d-v6.11.0.tar.gz",
+                    "sha256": "ecc6295e1ad6ec41ae7131f65dc9e0828ada26b023cf137652217d8c9be87573",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
@@ -457,8 +457,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/opencv/opencv/archive/4.12.0.tar.gz",
-                    "sha256": "44c106d5bb47efec04e531fd93008b3fcd1d27138985c5baf4eafac0e1ec9e9d",
+                    "url": "https://github.com/opencv/opencv/archive/4.13.0.tar.gz",
+                    "sha256": "1d40ca017ea51c533cf9fd5cbde5b5fe7ae248291ddf2af99d4c17cf8e13017d",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6615,
@@ -587,8 +587,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.1/kstars-3.8.1.tar.xz",
-                    "sha256": "d5fe3421d0738ca57676dd5366d2302c4fa2bee3e46f418c58cd36033d126aea",
+                    "url": "https://download.kde.org/stable/kstars/3.8.2/kstars-3.8.2.tar.xz",
+                    "sha256": "aca3f662c06371c3eefcd553a3a687c94ba58a7ae460d0c63907f6cb9f69ced9",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
