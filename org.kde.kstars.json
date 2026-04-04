@@ -587,7 +587,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.1/kstars-3.8.2.tar.xz",
+                    "url": "https://download.kde.org/stable/kstars/3.8.2/kstars-3.8.2.tar.xz",
                     "sha256": "39fd12b958575bac50099c5a66d5cae34235ecc4d56d550d252226d2a800ac31",
                     "x-checker-data": {
                         "is-main-source": true,
