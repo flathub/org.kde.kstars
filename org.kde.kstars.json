@@ -505,8 +505,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.1.9.tar.gz",
-                    "sha256": "54f9a2192d53d7b698c0a3c3c360ee1bac8b78f5a4f0234f3e9f7dec4ea81bf9",
+                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.2.0.tar.gz",
+                    "sha256": "6b5a59496457986c37868ffa1ad06f41079707566a8929015e15494b218ecc7f",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6838,
@@ -527,8 +527,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.9.1.tar.gz",
-                    "sha256": "9c23304b5c88e6a05570c96ba10096e3ad9ead7abf6ea588dde61dbae8b79558",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.0.tar.gz",
+                    "sha256": "2f5f329326bf6e468e6313724679e2934314dcee234715cbc5cac39279142f04",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -549,8 +549,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.1.9.1.tar.gz",
-                    "sha256": "9c23304b5c88e6a05570c96ba10096e3ad9ead7abf6ea588dde61dbae8b79558",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.0.tar.gz",
+                    "sha256": "2f5f329326bf6e468e6313724679e2934314dcee234715cbc5cac39279142f04",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -571,8 +571,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.1/kstars-3.8.1.tar.xz",
-                    "sha256": "d5fe3421d0738ca57676dd5366d2302c4fa2bee3e46f418c58cd36033d126aea",
+                    "url": "https://download.kde.org/stable/kstars/3.8.2/kstars-3.8.2.tar.xz",
+                    "sha256": "aca3f662c06371c3eefcd553a3a687c94ba58a7ae460d0c63907f6cb9f69ced9",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
@@ -580,14 +580,6 @@
                         "stable-only": true,
                         "url-template": "https://download.kde.org/stable/kstars/$version/kstars-$version.tar.xz"
                     }
-                },
-                {
-                    "type": "patch",
-                    "path": "stable-3.8.1-fixes.patch"
-                },
-                {
-                    "type": "patch",
-                    "path": "auto-focus_fix.patch"
                 }
             ]
         }
