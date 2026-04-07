@@ -486,36 +486,6 @@
             ]
         },
         {
-            "name": "sentry-native",
-            "buildsystem": "cmake-ninja",
-            "builddir": true,
-            "config-opts": [
-                "-DSENTRY_BACKEND=crashpad",
-                "-DCRASHPAD_ZLIB_SYSTEM=ON",
-                "-DSENTRY_TRANSPORT_COMPRESSION=OFF",
-                "-DCRASHPAD_GETOPT_SYSTEM=OFF"
-            ],
-            "sources": [
-                {
-                    "type": "git",
-                    "url": "https://github.com/getsentry/sentry-native.git",
-                    "tag": "0.13.4"
-                },
-                {
-                    "type": "git",
-                    "url": "https://github.com/getsentry/crashpad.git",
-                    "commit": "803a6cc9a72d3e99e0302821369239845d471df4",
-                    "dest": "external/crashpad"
-                },
-                {
-                    "type": "git",
-                    "url": "https://github.com/getsentry/mini_chromium.git",
-                    "commit": "6ca3161c6b16e414c776092784742e88b64e06bc",
-                    "dest": "external/crashpad/third_party/mini_chromium"
-                }
-            ]
-        },
-        {
             "name": "xplanet",
             "buildsystem": "cmake-ninja",
             "sources": [
@@ -596,7 +566,7 @@
             "config-opts": [
                 "-DBUILD_TESTING=OFF",
                 "-DBUILD_WITH_QT6=ON",
-                "-DENABLE_SENTRY=ON"
+                "-DENABLE_SENTRY=OFF"
             ],
             "sources": [
                 {
