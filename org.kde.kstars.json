@@ -491,7 +491,8 @@
             "builddir": true,
             "config-opts": [
                 "-DSENTRY_BACKEND=crashpad",
-                "-DBUILD_SHARED_LIBS=ON"
+                "-DCRASHPAD_ZLIB_SYSTEM=ON",
+                "-DSENTRY_TRANSPORT_COMPRESSION=OFF"
             ],
             "sources": [
                 {
