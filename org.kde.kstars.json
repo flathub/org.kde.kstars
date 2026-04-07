@@ -181,8 +181,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.libraw.org/data/LibRaw-0.22.0.tar.gz",
-                    "sha256": "1071e6e8011593c366ffdadc3d3513f57c90202d526e133174945ec1dd53f2a1",
+                    "url": "https://www.libraw.org/data/LibRaw-0.22.1.tar.gz",
+                    "sha256": "a789dc4e2409e2901d93793a4e0b80c7b49d0d97cf6ad71c850eb7616acfd786",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 1709,
@@ -412,8 +412,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.0/qtdatavis3d-v6.10.0.tar.gz",
-                    "sha256": "827518719d9efa3c7a8521ac89c22fa1a95cf1a8d4401fd3826feaec95a9e77f",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.11.0/qtdatavis3d-v6.11.0.tar.gz",
+                    "sha256": "ecc6295e1ad6ec41ae7131f65dc9e0828ada26b023cf137652217d8c9be87573",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
@@ -571,8 +571,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.1/kstars-3.8.1.tar.xz",
-                    "sha256": "d5fe3421d0738ca57676dd5366d2302c4fa2bee3e46f418c58cd36033d126aea",
+                    "url": "https://download.kde.org/stable/kstars/3.8.2/kstars-3.8.2.tar.xz",
+                    "sha256": "aca3f662c06371c3eefcd553a3a687c94ba58a7ae460d0c63907f6cb9f69ced9",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
