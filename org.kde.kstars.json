@@ -486,6 +486,22 @@
             ]
         },
         {
+            "name": "sentry-native",
+            "buildsystem": "cmake-ninja",
+            "builddir": true,
+            "config-opts": [
+                "-DSENTRY_BACKEND=crashpad",
+                "-DBUILD_SHARED_LIBS=ON"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/getsentry/sentry-native.git",
+                    "tag": "0.13.7"
+                }
+            ]
+        },
+        {
             "name": "xplanet",
             "buildsystem": "cmake-ninja",
             "sources": [
