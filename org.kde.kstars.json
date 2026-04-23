@@ -582,7 +582,7 @@
             "config-opts": [
                 "-DBUILD_TESTING=OFF",
                 "-DBUILD_WITH_QT6=ON",
-                "-DENABLE_SENTRY=OFF"
+                "-DENABLE_SENTRY=ON"
             ],
             "sources": [
                 {
