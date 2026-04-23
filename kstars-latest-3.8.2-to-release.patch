@@ -1,0 +1,1132 @@
+diff --git a/Tests/kstars_ui/test_ekos_scheduler_ops.cpp b/Tests/kstars_ui/test_ekos_scheduler_ops.cpp
+index 6dc0b923a..471d8ec67 100644
+--- a/Tests/kstars_ui/test_ekos_scheduler_ops.cpp
++++ b/Tests/kstars_ui/test_ekos_scheduler_ops.cpp
+@@ -2947,6 +2947,171 @@ void TestEkosSchedulerOps::testWeatherMonitoringModeSimulator()
+     KTRY_CLOSE_EKOS();
+ }
+ 
++// ─────────────────────────────────────────────────────────────────────────────
++// testWeatherRecoveryAfterDawnRunsShutdown
++//
++// Regression test for the bug where the post-startup queue runs (opening the
++// dome/unparking the mount) after weather clears past dawn, but the scheduler
++// never proceeds to evaluate jobs and run the pre-shutdown queue — leaving the
++// observatory open indefinitely.
++//
++// Scenario (mirrors the real incident from 2026-04-20):
++//   1. Scheduler is running, job is capturing.
++//   2. Weather alert fires mid-session → pre-shutdown queue runs (parks mount,
++//      closes dome).  Scheduler enters indefinite-wait monitoring mode
++//      (grace period = 0).
++//   3. Weather clears AFTER dawn.  wakeUpScheduler() fires, runs the
++//      post-startup queue (unparks mount, opens dome).
++//   4. BUG: schedulerState is already SCHEDULER_RUNNING, so execute() is a
++//      no-op.  checkStatus() is never called.  No jobs are schedulable (past
++//      dawn), so the pre-shutdown queue never runs.  Observatory stays open.
++//   5. FIX: queueExecutionCompleted() now calls setupNextIteration(RUN_SCHEDULER)
++//      when schedulerState == SCHEDULER_RUNNING, forcing checkStatus() to run,
++//      find no schedulable jobs, and call checkShutdownState() → pre-shutdown
++//      queue → mount parked again.
++//
++// Test flow:
++//   1. Full Ekos/INDI simulator startup + job capturing.
++//   2. Weather alert injected → pre-shutdown queue runs → mount parked.
++//      Scheduler enters indefinite-wait monitoring mode (grace period = 0).
++//   3. Advance simulated time past dawn so no jobs are schedulable.
++//   4. Weather OK injected → post-startup queue runs → mount unparked.
++//   5. REGRESSION CHECK: mount must be parked again (pre-shutdown queue ran).
++// ─────────────────────────────────────────────────────────────────────────────
++void TestEkosSchedulerOps::testWeatherRecoveryAfterDawnRunsShutdown()
++{
++    KTRY_OPEN_EKOS();
++    KVERIFY_EKOS_IS_OPENED();
++
++    TestEkosHelper helper;
++    helper.m_MountDevice = "Telescope Simulator";
++    helper.m_CCDDevice = "CCD Simulator";
++    helper.m_FocuserDevice = "Focuser Simulator";
++    helper.m_GuiderDevice = "Guide Simulator";
++    helper.m_ExtraDevices = QStringList() << "Weather Simulator";
++    QVERIFY(helper.setupEkosProfile("Simulators+Weather", false));
++
++    KTRY_EKOS_START_PROFILE("Simulators+Weather");
++    KHACK_RESET_EKOS_TIME();
++
++    Ekos::Scheduler *realScheduler = Ekos::Manager::Instance()->schedulerModule();
++    QSharedPointer<Ekos::Scheduler> realSchedulerPtr(realScheduler, [](Ekos::Scheduler *) {});
++
++    // Configure observatory queues (pre-shutdown parks mount/dome, post-startup unparks)
++    QString shutdownFile = KSPaths::locate(QStandardPaths::AppDataLocation,
++                                           "taskqueue/collections/observatory_shutdown.json");
++    QString startupFile  = KSPaths::locate(QStandardPaths::AppDataLocation,
++                                           "taskqueue/collections/observatory_startup.json");
++    QVERIFY2(!shutdownFile.isEmpty(), "observatory_shutdown.json not found");
++    QVERIFY2(!startupFile.isEmpty(),  "observatory_startup.json not found");
++
++    realScheduler->process()->moduleState()->setPreShutdownScriptURL(QUrl::fromLocalFile(shutdownFile));
++    realScheduler->process()->moduleState()->setPostStartupScriptURL(QUrl::fromLocalFile(startupFile));
++
++    Options::setSchedulerStartupEnabled(true);
++    Options::setSchedulerShutdownEnabled(true);
++    Options::setSchedulerWeather(true);
++    // Grace period = 0 → indefinite wait (the scenario from the bug report)
++    Options::setSchedulerWeatherGracePeriod(0);
++    Options::setSchedulerWeatherShutdownDelay(0);
++
++    // Use a location and target that is only visible at night so that after we
++    // advance the clock past dawn the GreedyScheduler finds no schedulable jobs.
++    GeoLocation geo(dms(47, 58), dms(29, 20), "Kuwait", "", "Kuwait", 3);
++    KStarsData::Instance()->geo()->setLat(*(geo.lat()));
++    KStarsData::Instance()->geo()->setLong(*(geo.lng()));
++    KStarsData::Instance()->geo()->setTZ0(geo.TZ0());
++
++    SkyObject *targetObject = KStars::Instance()->data()->skyComposite()->findByName("Kocab");
++    QVERIFY2(targetObject != nullptr, "Kocab not found in sky catalog");
++
++    TestEkosSchedulerHelper::StartupCondition startupCond;
++    startupCond.type = Ekos::START_ASAP;
++    TestEkosSchedulerHelper::CompletionCondition completionCond;
++    completionCond.type = Ekos::FINISH_LOOP;
++
++    QTemporaryDir dir(KTest::tempDirPattern(QStringLiteral("scheduler")));
++    auto schedJob = QVector<TestEkosSchedulerHelper::CaptureJob>(1, {2, 2, "Luminance", "."});
++    // enforceTwilight = true so the job is constrained to nighttime only
++    QString schedulerXML = TestEkosSchedulerHelper::getSchedulerFile(
++                               targetObject, startupCond, completionCond,
++    {true, false, false, false}, /*enforceTwilight=*/true, false, 0);
++
++    QString esqFilename = dir.filePath("test.esq");
++    QString eslFilename = dir.filePath("test.esl");
++    TestEkosSchedulerHelper::writeSimpleSequenceFiles(schedulerXML, eslFilename,
++            TestEkosSchedulerHelper::getEsqContent(schedJob), esqFilename);
++
++    realScheduler->load(true, eslFilename);
++    realScheduler->moduleState()->jobs()[0]->setSequenceFile(QUrl(QString("file://%1").arg(esqFilename)));
++
++    helper.prepareOpticalTrains();
++    helper.prepareCaptureModule();
++
++    // ── Phase 1: Start scheduler and wait until the job is capturing ──────────
++    KTRY_CLICK(realScheduler, startB);
++    QTRY_VERIFY_WITH_TIMEOUT(realScheduler->activeJob() != nullptr
++                             && realScheduler->activeJob()->getStage() == Ekos::SCHEDSTAGE_CAPTURING, 120000);
++
++    // ── Phase 2: Inject weather alert ─────────────────────────────────────────
++    QVERIFY2(TestEkosHelper::setSimulatedWeather(true, realSchedulerPtr), "Weather alert not set");
++
++    // Wait for the pre-shutdown queue to complete: mount must be parked
++    QTRY_VERIFY_WITH_TIMEOUT(realScheduler->process()->moduleState()->weatherStatus() ==
++                             ISD::Weather::WEATHER_ALERT, 10000);
++    QTRY_VERIFY_WITH_TIMEOUT(Ekos::Manager::Instance()->mountModule()->parkStatus() ==
++                             ISD::PARK_PARKED, 30000);
++
++    // Scheduler must be in indefinite-wait monitoring mode (grace period = 0)
++    QTRY_VERIFY_WITH_TIMEOUT(realScheduler->process()->moduleState()->weatherShutdownMonitoring() == true, 10000);
++    QVERIFY2(realScheduler->process()->moduleState()->schedulerState() == Ekos::SCHEDULER_RUNNING,
++             "schedulerState must remain RUNNING in monitoring mode");
++    // Ekos/INDI must stay up (soft shutdown only)
++    QVERIFY2(realScheduler->process()->moduleState()->ekosState() == Ekos::EKOS_READY,
++             "Ekos must remain running during soft shutdown");
++    QVERIFY2(realScheduler->process()->moduleState()->indiState() == Ekos::INDI_READY,
++             "INDI must remain connected during soft shutdown");
++
++    // ── Phase 3: Advance simulated clock past dawn so no jobs are schedulable ─
++    // Move time to 10:00 local (well past dawn) so the twilight-constrained job
++    // has no valid window when the scheduler evaluates after weather recovery.
++    KStarsDateTime dawn = KStarsDateTime(KStarsData::Instance()->lt().date().addDays(0),
++                                         QTime(10, 0, 0));
++    KStarsData::Instance()->changeDateTime(KStarsDateTime(dawn.djd()));
++    // Let the scheduler process the time change
++    QTest::qWait(500);
++
++    // ── Phase 4: Inject weather OK ────────────────────────────────────────────
++    QVERIFY2(TestEkosHelper::setSimulatedWeather(false, realSchedulerPtr), "Weather OK not set");
++
++    QTRY_VERIFY_WITH_TIMEOUT(realScheduler->process()->moduleState()->weatherStatus() ==
++                             ISD::Weather::WEATHER_OK, 10000);
++
++    // The post-startup queue must run: mount unparks first
++    QTRY_VERIFY_WITH_TIMEOUT(Ekos::Manager::Instance()->mountModule()->parkStatus() ==
++                             ISD::PARK_UNPARKED, 30000);
++
++    // ── Phase 5: Regression check ─────────────────────────────────────────────
++    // After the post-startup queue completes, checkStatus() must be called.
++    // It finds no schedulable jobs (past dawn, twilight constraint), so it calls
++    // checkShutdownState() which runs the pre-shutdown queue → mount parked again.
++    //
++    // WITHOUT the fix: the scheduler is stuck after the post-startup queue because
++    // execute() is a no-op when schedulerState == SCHEDULER_RUNNING.  The mount
++    // stays unparked and the dome stays open indefinitely.
++    QTRY_VERIFY_WITH_TIMEOUT(Ekos::Manager::Instance()->mountModule()->parkStatus() ==
++                             ISD::PARK_PARKED, 60000);
++
++    // Scheduler should have stopped cleanly after the pre-shutdown queue
++    QTRY_VERIFY_WITH_TIMEOUT(
++        realScheduler->process()->moduleState()->schedulerState() == Ekos::SCHEDULER_IDLE ||
++        realScheduler->process()->moduleState()->shutdownState() == Ekos::SHUTDOWN_COMPLETE,
++        30000);
++
++    KTRY_EKOS_STOP_SIMULATORS();
++    KTRY_CLOSE_EKOS();
++}
++
+ QTEST_KSTARS_MAIN(TestEkosSchedulerOps)
+ 
+ #endif // HAVE_INDI
+diff --git a/Tests/kstars_ui/test_ekos_scheduler_ops.h b/Tests/kstars_ui/test_ekos_scheduler_ops.h
+index 0f5c1c510..1ab93b45f 100644
+--- a/Tests/kstars_ui/test_ekos_scheduler_ops.h
++++ b/Tests/kstars_ui/test_ekos_scheduler_ops.h
+@@ -60,6 +60,7 @@ class TestEkosSchedulerOps : public QObject
+         void testDawnShutdown();
+         void testPreemptiveShutdown();
+         void testPreemptiveShutdownTimerSwitchOnQueueComplete();
++        void testWeatherRecoveryAfterDawnRunsShutdown();
+ 
+         // Weather soft-shutdown → recovery state-machine tests.
+         // testWeatherSoftShutdownSimulator goes through the full Ekos/INDI simulator
+diff --git a/kstars/ekos/align/align.cpp b/kstars/ekos/align/align.cpp
+index 06bb1ae0e..a77ded60d 100644
+--- a/kstars/ekos/align/align.cpp
++++ b/kstars/ekos/align/align.cpp
+@@ -77,6 +77,7 @@
+ #define CAPTURE_RETRY_DELAY       10000
+ #define CAPTURE_ROTATOR_DELAY     5000  // After 5 seconds estimated value should be not bad
+ #define PAH_CUTOFF_FOV            10    // Minimum FOV width in arcminutes for PAH to work
++#define ROTATOR_FLIP_TOLERANCE    10    // Tolerance in degrees to detect a flipped PA (~180°)
+ #define CHECK_PAH(x) \
+     m_PolarAlignmentAssistant && m_PolarAlignmentAssistant->x
+ #define RUN_PAH(x) \
+@@ -352,22 +353,22 @@ void Align::handlePointTooltip(QMouseEvent *event)
+                 return;
+             QToolTip::showText(QtCompat::mouseGlobalPos(event).toPoint(),
+                                i18n("<table>"
+-                 "<tr>"
+-                 "<th colspan=\"2\">Object %1: %2</th>"
+-                 "</tr>"
+-                 "<tr>"
+-                 "<td>RA:</td><td>%3</td>"
+-                 "</tr>"
+-                 "<tr>"
+-                 "<td>DE:</td><td>%4</td>"
+-                 "</tr>"
+-                 "<tr>"
+-                 "<td>dRA:</td><td>%5</td>"
+-                 "</tr>"
+-                 "<tr>"
+-                 "<td>dDE:</td><td>%6</td>"
+-                 "</tr>"
+-                 "</table>",
++                                    "<tr>"
++                                    "<th colspan=\"2\">Object %1: %2</th>"
++                                    "</tr>"
++                                    "<tr>"
++                                    "<td>RA:</td><td>%3</td>"
++                                    "</tr>"
++                                    "<tr>"
++                                    "<td>DE:</td><td>%4</td>"
++                                    "</tr>"
++                                    "<tr>"
++                                    "<td>dRA:</td><td>%5</td>"
++                                    "</tr>"
++                                    "<tr>"
++                                    "<td>dDE:</td><td>%6</td>"
++                                    "</tr>"
++                                    "</table>",
+                                     point + 1,
+                                     solutionTable->item(point, 2)->text(),
+                                     solutionTable->item(point, 0)->text(),
+@@ -1958,7 +1959,7 @@ void Align::startSolving()
+             {
+                 appendLogText(
+                     i18n("No index files were found on your system in the specified index file directories."
+-                     "Please download some index files or add the correct directory to the list."));
++                         "Please download some index files or add the correct directory to the list."));
+                 KConfigDialog * alignSettings = KConfigDialog::exists("alignsettings");
+                 if(alignSettings && m_IndexFilesPage)
+                 {
+@@ -2259,10 +2260,13 @@ void Align::solverFinished(double orientation, double ra, double dec, double pix
+             if (rotation)
+             {
+                 auto clientManager = m_Camera->getDriverInfo()->getClientManager();
+-                rotation->setValue(orientation);
+-                clientManager->sendNewProperty(ccdRotation);
++                if (clientManager)
++                {
++                    rotation->setValue(orientation);
++                    clientManager->sendNewProperty(ccdRotation);
++                }
+ 
+-                if (m_wcsSynced == false)
++                if (clientManager && m_wcsSynced == false)
+                 {
+                     appendLogText(
+                         i18n("WCS information updated. Images captured from this point forward shall have valid WCS."));
+@@ -2608,6 +2612,19 @@ bool Align::checkIfRotationRequired()
+                     m_TargetPositionAngle = RotatorUtils::Instance()->calcCameraAngle(sRawAngle, true);
+                     RotatorUtils::Instance()->setImagePierside(ISD::Mount::PIER_UNKNOWN); // ... once!
+                 }
++                // If "Preserve Rotator Angle" is enabled and the PA difference is close to 180°,
++                // treat it as a flipped image scenario and skip rotation.
++                else if (Options::astrometryFlipRotationAllowed())
++                {
++                    double paDiff = fabs(KSUtils::rangePA(currentRotatorPA - m_TargetPositionAngle));
++                    if (fabs(paDiff - 180.0) < ROTATOR_FLIP_TOLERANCE)
++                    {
++                        appendLogText(i18n("PA difference ~%1°, image is flipped. Preserving rotator angle.",
++                                           QString::number(paDiff, 'f', 1)));
++                        m_TargetPositionAngle = std::numeric_limits<double>::quiet_NaN();
++                        return false;
++                    }
++                }
+                 // Match the position angle with rotator
+                 if  (m_Rotator != nullptr && m_Rotator->isConnected())
+                 {
+@@ -4115,7 +4132,7 @@ void Align::exportSolutionPoints()
+     {
+         int r = KMessageBox::warningContinueCancel(nullptr,
+                 i18n("A file named \"%1\" already exists. "
+-             "Overwrite it?",
++                     "Overwrite it?",
+                      exportFile.fileName()),
+                 i18n("Overwrite File?"), KStandardGuiItem::overwrite());
+         if (r == KMessageBox::Cancel)
+diff --git a/kstars/ekos/auxiliary/opticaltrainmanager.cpp b/kstars/ekos/auxiliary/opticaltrainmanager.cpp
+index e8ef9768a..451ceebb1 100644
+--- a/kstars/ekos/auxiliary/opticaltrainmanager.cpp
++++ b/kstars/ekos/auxiliary/opticaltrainmanager.cpp
+@@ -1167,11 +1167,11 @@ ISD::AdaptiveOptics *OpticalTrainManager::getAdaptiveOptics(const QString &name)
+ ////////////////////////////////////////////////////////////////////////////
+ ///
+ ////////////////////////////////////////////////////////////////////////////
+-const QVariantMap OpticalTrainManager::getOpticalTrain(uint8_t id) const
++const QVariantMap OpticalTrainManager::getOpticalTrain(uint32_t id) const
+ {
+     for (auto &oneTrain : m_OpticalTrains)
+     {
+-        if (oneTrain["id"].toInt() == id)
++        if (oneTrain["id"].toUInt() == id)
+             return oneTrain;
+     }
+ 
+@@ -1181,11 +1181,11 @@ const QVariantMap OpticalTrainManager::getOpticalTrain(uint8_t id) const
+ ////////////////////////////////////////////////////////////////////////////
+ ///
+ ////////////////////////////////////////////////////////////////////////////
+-bool OpticalTrainManager::exists(uint8_t id) const
++bool OpticalTrainManager::exists(uint32_t id) const
+ {
+     for (auto &oneTrain : m_OpticalTrains)
+     {
+-        if (oneTrain["id"].toInt() == id)
++        if (oneTrain["id"].toUInt() == id)
+             return true;
+     }
+ 
+diff --git a/kstars/ekos/auxiliary/opticaltrainmanager.h b/kstars/ekos/auxiliary/opticaltrainmanager.h
+index 4c5df72e3..126ae19ac 100644
+--- a/kstars/ekos/auxiliary/opticaltrainmanager.h
++++ b/kstars/ekos/auxiliary/opticaltrainmanager.h
+@@ -62,8 +62,8 @@ class OpticalTrainManager : public QDialog, public Ui::OpticalTrain
+         void setProfile(const QSharedPointer<ProfileInfo> &profile);
+         void checkOpticalTrains();
+ 
+-        bool exists(uint8_t id) const;
+-        const QVariantMap getOpticalTrain(uint8_t id) const;
++        bool exists(uint32_t id) const;
++        const QVariantMap getOpticalTrain(uint32_t id) const;
+         const QVariantMap getOpticalTrain(const QString &name) const;
+         const QList<QVariantMap> &getOpticalTrains() const
+         {
+diff --git a/kstars/ekos/capture/cameraprocess.cpp b/kstars/ekos/capture/cameraprocess.cpp
+index 024898a2a..2f61f2ec9 100644
+--- a/kstars/ekos/capture/cameraprocess.cpp
++++ b/kstars/ekos/capture/cameraprocess.cpp
+@@ -166,10 +166,29 @@ bool CameraProcess::setCamera(ISD::Camera *device)
+     if (devices()->getActiveCamera() == device)
+         return false;
+ 
+-    // disable passing through new frames to the FITS viewer
+     if (activeCamera())
++    {
++        // disable passing through new frames to the FITS viewer
+         disconnect(activeCamera(), &ISD::Camera::newImage, this, &CameraProcess::showFITSPreview);
+ 
++        // Disconnect all video-streaming signals bound to the old camera.
++        // updateVideoWindow is connected here in setCamera(); showVideoFrame and
++        // closeVideoWindow are connected lazily inside getVideoWindow(). All three
++        // must be severed before we switch cameras so the new camera gets clean,
++        // correctly wired connections.
++        disconnect(activeCamera(), &ISD::Camera::updateVideoWindow, this, &CameraProcess::updateVideoWindow);
++        disconnect(activeCamera(), &ISD::Camera::showVideoFrame,    this, &CameraProcess::showVideoFrame);
++        disconnect(activeCamera(), &ISD::Camera::closeVideoWindow,  this, &CameraProcess::closeVideoWindow);
++    }
++
++    // Tear down the stale video window. It was constructed for the previous camera
++    // (holds an internal m_Camera pointer to it and carries camera-specific signal
++    // connections). Resetting to null forces getVideoWindow() to build a fresh
++    // StreamWG for the new camera the next time streaming is requested.
++    // Qt's QObject destructor automatically disconnects all signals/slots that
++    // target the StreamWG object itself, so no manual cleanup is needed for those.
++    m_VideoWindow.reset();
++
+     devices()->setActiveCamera(device);
+ 
+     // If we capturing, then we need to process capture timeout immediately since this is a crash recovery
+diff --git a/kstars/ekos/capture/capturedeviceadaptor.cpp b/kstars/ekos/capture/capturedeviceadaptor.cpp
+index e8f72de15..4097d9981 100644
+--- a/kstars/ekos/capture/capturedeviceadaptor.cpp
++++ b/kstars/ekos/capture/capturedeviceadaptor.cpp
+@@ -403,6 +403,8 @@ void CaptureDeviceAdaptor::connectFilterManager(SequenceJobState *state)
+ 
+     if (m_FilterManager.isNull() == false)
+     {
++        qCDebug(KSTARS_EKOS_CAPTURE) <<
++        "CaptureDeviceAdaptor::connectFilterManager() - connecting FilterManager::newStatus to SequenceJobState::setFilterStatus";
+         connect(m_FilterManager.get(), &FilterManager::newStatus, state, &SequenceJobState::setFilterStatus);
+         connect(m_FilterManager.get(), &FilterManager::positionChanged, state, &SequenceJobState::setCurrentFilterID);
+     }
+@@ -419,6 +421,8 @@ void CaptureDeviceAdaptor::disconnectFilterManager(SequenceJobState *state)
+ 
+     if (m_FilterManager.isNull() == false)
+     {
++        qCDebug(KSTARS_EKOS_CAPTURE) <<
++        "CaptureDeviceAdaptor::disconnectFilterManager() - disconnecting FilterManager::newStatus from SequenceJobState::setFilterStatus";
+         disconnect(m_FilterManager.get(), &FilterManager::positionChanged, state, &SequenceJobState::setCurrentFilterID);
+         disconnect(m_FilterManager.get(), &FilterManager::newStatus, state, &SequenceJobState::setFilterStatus);
+     }
+diff --git a/kstars/ekos/capture/sequencejobstate.cpp b/kstars/ekos/capture/sequencejobstate.cpp
+index 463490a15..c6f2d31f3 100644
+--- a/kstars/ekos/capture/sequencejobstate.cpp
++++ b/kstars/ekos/capture/sequencejobstate.cpp
+@@ -9,6 +9,7 @@
+ #include "Options.h"
+ #include "kstarsdata.h"
+ #include "indicom.h"
++#include "capturetypes.h"
+ #include "ekos/auxiliary/rotatorutils.h"
+ #include <ekos_capture_debug.h>
+ 
+@@ -39,6 +40,35 @@ SequenceJobState::SequenceJobState(const QSharedPointer<CameraState> &sharedStat
+         // If preparation is not complete by now, let should abort.
+         if (!preparationCompleted())
+         {
++            // Map action enum values to readable names
++            static const QMap<CaptureWorkflowActionType, QString> actionNames =
++            {
++                {CAPTURE_ACTION_NONE, "NONE"},
++                {CAPTURE_ACTION_START, "START"},
++                {CAPTURE_ACTION_PAUSE, "PAUSE"},
++                {CAPTURE_ACTION_SUSPEND, "SUSPEND"},
++                {CAPTURE_ACTION_FILTER, "FILTER"},
++                {CAPTURE_ACTION_TEMPERATURE, "TEMPERATURE"},
++                {CAPTURE_ACTION_ROTATOR, "ROTATOR"},
++                {CAPTURE_ACTION_PREPARE_LIGHTSOURCE, "LIGHTSOURCE"},
++                {CAPTURE_ACTION_MOUNT_PARK, "MOUNT_PARK"},
++                {CAPTURE_ACTION_DOME_PARK, "DOME_PARK"},
++                {CAPTURE_ACTION_FLAT_SYNC_FOCUS, "FLAT_SYNC_FOCUS"},
++                {CAPTURE_ACTION_SCOPE_COVER, "SCOPE_COVER"},
++                {CAPTURE_ACTION_AUTOFOCUS, "AUTOFOCUS"},
++                {CAPTURE_ACTION_DITHER_REQUEST, "DITHER_REQUEST"},
++                {CAPTURE_ACTION_DITHER, "DITHER"},
++                {CAPTURE_ACTION_CHECK_GUIDING, "CHECK_GUIDING"},
++            };
++            QStringList pending;
++            for (auto it = prepareActions.constBegin(); it != prepareActions.constEnd(); ++it)
++            {
++                if (!it.value())
++                    pending << actionNames.value(it.key(), QString::number(it.key()));
++            }
++            qCDebug(KSTARS_EKOS_CAPTURE) << "Capture operations timed out after" << Options::captureOperationsTimeout()
++                                         << "seconds. Pending actions:" << pending.join(",")
++                                         << "Prep state:" << m_PreparationState;
+             emit newLog(i18n("Capture operations timed out after %1 seconds.", Options::captureOperationsTimeout()));
+             m_CaptureOperationsTimer.stop();
+             emit prepareComplete(false);
+@@ -166,6 +196,29 @@ bool SequenceJobState::initCapture(CCDFrameType frameType, bool isPreview, bool
+     m_fitsMode = mode;
+     m_CaptureOperationsTimer.start();
+ 
++    {
++        // Map action enum values to readable names
++        static const QMap<CaptureWorkflowActionType, QString> actionNames =
++        {
++            {CAPTURE_ACTION_NONE, "NONE"}, {CAPTURE_ACTION_START, "START"},
++            {CAPTURE_ACTION_PAUSE, "PAUSE"}, {CAPTURE_ACTION_SUSPEND, "SUSPEND"},
++            {CAPTURE_ACTION_FILTER, "FILTER"}, {CAPTURE_ACTION_TEMPERATURE, "TEMPERATURE"},
++            {CAPTURE_ACTION_ROTATOR, "ROTATOR"}, {CAPTURE_ACTION_PREPARE_LIGHTSOURCE, "LIGHTSOURCE"},
++            {CAPTURE_ACTION_MOUNT_PARK, "MOUNT_PARK"}, {CAPTURE_ACTION_DOME_PARK, "DOME_PARK"},
++            {CAPTURE_ACTION_FLAT_SYNC_FOCUS, "FLAT_SYNC_FOCUS"}, {CAPTURE_ACTION_SCOPE_COVER, "SCOPE_COVER"},
++            {CAPTURE_ACTION_AUTOFOCUS, "AUTOFOCUS"}, {CAPTURE_ACTION_DITHER_REQUEST, "DITHER_REQUEST"},
++            {CAPTURE_ACTION_DITHER, "DITHER"}, {CAPTURE_ACTION_CHECK_GUIDING, "CHECK_GUIDING"},
++        };
++        QStringList actionList;
++        for (auto it = prepareActions.constBegin(); it != prepareActions.constEnd(); ++it)
++            actionList << QString("%1=%2").arg(actionNames.value(it.key(), QString::number(it.key())),
++                                               it.value() ? "ready" : "pending");
++        qCDebug(KSTARS_EKOS_CAPTURE) << "initCapture() targetFilter:" << targetFilterID
++                                     << "currentFilter:" << m_CameraState->currentFilterID
++                                     << "actions:" << actionList.join(", ")
++                                     << "filterPolicy:" << m_filterPolicy;
++    }
++
+     //check for setting the target filter
+     prepareTargetFilter(frameType, isPreview);
+     checkAllActionsReady();
+@@ -1112,6 +1165,11 @@ SequenceJobState::PreparationState SequenceJobState::getPreparationState() const
+ 
+ void SequenceJobState::setFilterStatus(FilterState filterState)
+ {
++    qCDebug(KSTARS_EKOS_CAPTURE) << "SequenceJobState::setFilterStatus()" << filterState
++                                 << "prepState:" << m_PreparationState
++                                 << "filterAutofocusTriggered:" << m_filterAutofocusTriggered
++                                 << "actions:" << prepareActions;
++
+     // ignore events if preparation is already completed
+     if (preparationCompleted())
+     {
+diff --git a/kstars/ekos/scheduler/scheduler.cpp b/kstars/ekos/scheduler/scheduler.cpp
+index a1300893a..d9c78257f 100644
+--- a/kstars/ekos/scheduler/scheduler.cpp
++++ b/kstars/ekos/scheduler/scheduler.cpp
+@@ -205,8 +205,8 @@ void Scheduler::setupScheduler(const QString &ekosPathStr, const QString &ekosIn
+     sortJobsB->setIcon(QIcon::fromTheme("transform-move-vertical"));
+     sortJobsB->setToolTip(
+         i18n("Reset state and sort observation jobs per altitude and movement in sky, using the start time of the first job.\n"
+-         "This action sorts setting targets before rising targets, and may help scheduling when starting your observation.\n"
+-         "Note the algorithm first calculates all altitudes using the same time, then evaluates jobs."));
++             "This action sorts setting targets before rising targets, and may help scheduling when starting your observation.\n"
++             "Note the algorithm first calculates all altitudes using the same time, then evaluates jobs."));
+     sortJobsB->setAttribute(Qt::WA_LayoutUsesWidgetRect);
+     mosaicB->setIcon(QIcon::fromTheme("zoom-draw"));
+     mosaicB->setAttribute(Qt::WA_LayoutUsesWidgetRect);
+@@ -1003,13 +1003,29 @@ void Scheduler::clearPreStartupQueue()
+ 
+ void Scheduler::clearPostStartupQueue()
+ {
+-    schedulerPostStartupScript->setText(QString());
++    if (schedulerPostStartupScript->text().isEmpty())
++    {
++        schedulerPostStartupScript->setText(KSPaths::locate(QStandardPaths::AppLocalDataLocation,
++                                            "taskqueue/collections/observatory_startup.json"));
++    }
++    else
++    {
++        schedulerPostStartupScript->setText(QString());
++    }
+     moduleState()->setDirty(true);
+ }
+ 
+ void Scheduler::clearPreShutdownQueue()
+ {
+-    schedulerPreShutdownScript->setText(QString());
++    if (schedulerPreShutdownScript->text().isEmpty())
++    {
++        schedulerPreShutdownScript->setText(KSPaths::locate(QStandardPaths::AppLocalDataLocation,
++                                            "taskqueue/collections/observatory_shutdown.json"));
++    }
++    else
++    {
++        schedulerPreShutdownScript->setText(QString());
++    }
+     moduleState()->setDirty(true);
+ }
+ 
+@@ -1077,6 +1093,20 @@ bool Scheduler::fillJobFromUI(SchedulerJob *job)
+         return false;
+     }
+ 
++    // Check for duplicate job name (skip if editing the same job)
++    for (auto *existingJob : moduleState()->jobs())
++    {
++        if (existingJob == job)
++            continue;
++        if (existingJob->getName() == nameEdit->text())
++        {
++            process()->appendLogText(
++                i18n("Warning: A job with name '%1' already exists. Please use a unique name.",
++                     nameEdit->text()));
++            return false;
++        }
++    }
++
+     if (sequenceEdit->text().isEmpty())
+     {
+         process()->appendLogText(i18n("Warning: Sequence file is required."));
+diff --git a/kstars/ekos/scheduler/scheduler.ui b/kstars/ekos/scheduler/scheduler.ui
+index 0df1895c8..c6b706b0e 100644
+--- a/kstars/ekos/scheduler/scheduler.ui
++++ b/kstars/ekos/scheduler/scheduler.ui
+@@ -42,7 +42,7 @@
+        <number>3</number>
+       </property>
+       <property name="sizeConstraint">
+-       <enum>QLayout::SetDefaultConstraint</enum>
++       <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+       </property>
+       <property name="leftMargin">
+        <number>3</number>
+@@ -91,7 +91,7 @@
+              <number>1</number>
+             </property>
+             <property name="sizeConstraint">
+-             <enum>QLayout::SetDefaultConstraint</enum>
++             <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+@@ -114,7 +114,7 @@
+              <number>1</number>
+             </property>
+             <property name="sizeConstraint">
+-             <enum>QLayout::SetDefaultConstraint</enum>
++             <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+@@ -212,7 +212,7 @@
+                <string>Slew to the target and track. Done at the start of each scheduler job.</string>
+               </property>
+               <property name="layoutDirection">
+-               <enum>Qt::LeftToRight</enum>
++               <enum>Qt::LayoutDirection::LeftToRight</enum>
+               </property>
+               <property name="text">
+                <string>Track</string>
+@@ -281,7 +281,7 @@
+                <string>Run autofocus. Done at the start of each scheduler job.</string>
+               </property>
+               <property name="layoutDirection">
+-               <enum>Qt::LeftToRight</enum>
++               <enum>Qt::LayoutDirection::LeftToRight</enum>
+               </property>
+               <property name="text">
+                <string>Focus</string>
+@@ -391,7 +391,7 @@
+              <number>1</number>
+             </property>
+             <property name="sizeConstraint">
+-             <enum>QLayout::SetDefaultConstraint</enum>
++             <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+@@ -639,7 +639,7 @@
+                <string/>
+               </property>
+               <property name="layoutDirection">
+-               <enum>Qt::LeftToRight</enum>
++               <enum>Qt::LayoutDirection::LeftToRight</enum>
+               </property>
+              </widget>
+             </item>
+@@ -703,7 +703,7 @@
+         <item>
+          <spacer name="verticalSpacer">
+           <property name="orientation">
+-           <enum>Qt::Vertical</enum>
++           <enum>Qt::Orientation::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+@@ -721,7 +721,7 @@
+          <number>1</number>
+         </property>
+         <property name="sizeConstraint">
+-         <enum>QLayout::SetDefaultConstraint</enum>
++         <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+         </property>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_14">
+@@ -887,10 +887,10 @@
+           <item>
+            <spacer name="horizontalSpacer_3">
+             <property name="orientation">
+-             <enum>Qt::Horizontal</enum>
++             <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+-             <enum>QSizePolicy::Preferred</enum>
++             <enum>QSizePolicy::Policy::Preferred</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+@@ -987,10 +987,10 @@
+           <item>
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+-             <enum>Qt::Horizontal</enum>
++             <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+-             <enum>QSizePolicy::Expanding</enum>
++             <enum>QSizePolicy::Policy::Expanding</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+@@ -1141,14 +1141,14 @@
+            </sizepolicy>
+           </property>
+           <property name="orientation">
+-           <enum>Qt::Vertical</enum>
++           <enum>Qt::Orientation::Vertical</enum>
+           </property>
+           <widget class="QTableWidget" name="queueTable">
+            <property name="selectionMode">
+-            <enum>QAbstractItemView::SingleSelection</enum>
++            <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
+            </property>
+            <property name="selectionBehavior">
+-            <enum>QAbstractItemView::SelectRows</enum>
++            <enum>QAbstractItemView::SelectionBehavior::SelectRows</enum>
+            </property>
+            <property name="rowCount">
+             <number>0</number>
+@@ -1304,10 +1304,10 @@ font-weight:bold;
+           <item>
+            <spacer name="horizontalSpacer_4">
+             <property name="orientation">
+-             <enum>Qt::Horizontal</enum>
++             <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeType">
+-             <enum>QSizePolicy::Fixed</enum>
++             <enum>QSizePolicy::Policy::Fixed</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+@@ -1343,7 +1343,7 @@ font-weight:bold;
+           <item>
+            <spacer name="horizontalSpacer_2">
+             <property name="orientation">
+-             <enum>Qt::Horizontal</enum>
++             <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+@@ -1373,7 +1373,7 @@ font-weight:bold;
+    <item>
+     <layout class="QGridLayout" name="gridLayoutConditions" rowstretch="0" columnstretch="2,4,3">
+      <property name="sizeConstraint">
+-      <enum>QLayout::SetDefaultConstraint</enum>
++      <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+@@ -1400,7 +1400,7 @@ font-weight:bold;
+          <number>3</number>
+         </property>
+         <property name="sizeConstraint">
+-         <enum>QLayout::SetDefaultConstraint</enum>
++         <enum>QLayout::SizeConstraint::SetDefaultConstraint</enum>
+         </property>
+         <property name="leftMargin">
+          <number>3</number>
+@@ -1635,7 +1635,7 @@ font-weight:bold;
+         <item>
+          <spacer name="verticalSpacer_2">
+           <property name="orientation">
+-           <enum>Qt::Vertical</enum>
++           <enum>Qt::Orientation::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+@@ -1782,10 +1782,10 @@ font-weight:bold;
+         <item row="1" column="2">
+          <spacer name="horizontalSpacer_5">
+           <property name="orientation">
+-           <enum>Qt::Horizontal</enum>
++           <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+-           <enum>QSizePolicy::Fixed</enum>
++           <enum>QSizePolicy::Policy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+@@ -1855,7 +1855,7 @@ font-weight:bold;
+            <string/>
+           </property>
+           <property name="alignment">
+-           <set>Qt::AlignCenter</set>
++           <set>Qt::AlignmentFlag::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+@@ -1865,7 +1865,7 @@ font-weight:bold;
+            <string/>
+           </property>
+           <property name="alignment">
+-           <set>Qt::AlignCenter</set>
++           <set>Qt::AlignmentFlag::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+@@ -2127,6 +2127,9 @@ font-weight:bold;
+           </item>
+           <item>
+            <widget class="QPushButton" name="postStartupQueueClearB">
++            <property name="toolTip">
++             <string>Reset or Restore to Default if empty</string>
++            </property>
+             <property name="text">
+              <string/>
+             </property>
+@@ -2225,6 +2228,9 @@ font-weight:bold;
+           </item>
+           <item>
+            <widget class="QPushButton" name="preShutdownQueueClearB">
++            <property name="toolTip">
++             <string>Reset or Restore to Default if empty</string>
++            </property>
+             <property name="text">
+              <string/>
+             </property>
+@@ -2357,18 +2363,18 @@ font-weight:bold;
+  <resources/>
+  <connections/>
+  <buttongroups>
+-  <buttongroup name="startupButtonGroup"/>
+   <buttongroup name="completionButtonGroup"/>
+   <buttongroup name="stepsButtonGroup">
+    <property name="exclusive">
+     <bool>false</bool>
+    </property>
+   </buttongroup>
++  <buttongroup name="errorHandlingButtonGroup"/>
+   <buttongroup name="constraintButtonGroup">
+    <property name="exclusive">
+     <bool>false</bool>
+    </property>
+   </buttongroup>
+-  <buttongroup name="errorHandlingButtonGroup"/>
++  <buttongroup name="startupButtonGroup"/>
+  </buttongroups>
+ </ui>
+diff --git a/kstars/ekos/scheduler/schedulerprocess.cpp b/kstars/ekos/scheduler/schedulerprocess.cpp
+index 39c453246..d6721a84e 100644
+--- a/kstars/ekos/scheduler/schedulerprocess.cpp
++++ b/kstars/ekos/scheduler/schedulerprocess.cpp
+@@ -3307,6 +3307,14 @@ void SchedulerProcess::queueExecutionCompleted()
+             appendLogText(i18n("Resuming scheduler after safety recovery startup tasks..."));
+             execute();
+         }
++        else if (moduleState()->schedulerState() == SCHEDULER_RUNNING)
++        {
++            // Scheduler is already running (e.g. weather recovery while scheduler was active).
++            // Force a RUN_SCHEDULER iteration so checkStatus() evaluates jobs.
++            // Without this, execute() is a no-op when schedulerState is already RUNNING, and the
++            // scheduler never proceeds past the post-startup queue completion.
++            moduleState()->setupNextIteration(RUN_SCHEDULER);
++        }
+         return;
+     }
+ 
+@@ -3345,6 +3353,12 @@ void SchedulerProcess::queueExecutionCompleted()
+     {
+         appendLogText(i18n("Post-shutdown queue completed successfully."));
+         moduleState()->setShutdownState(SHUTDOWN_COMPLETE);
++        // Immediately finalize shutdown: log completion, stop the scheduler (or enter
++        // weather monitoring mode). Without this call the RUN_SHUTDOWN timer fires ~1 s
++        // later, the guard at the top of checkShutdownState() sees SHUTDOWN_COMPLETE
++        // while INDI is still connected (stopEkosAfterShutdown == false) and resets the
++        // state back to SHUTDOWN_IDLE, causing an infinite shutdown loop.
++        completeShutdown();
+         return;
+     }
+ }
+@@ -4232,15 +4246,15 @@ bool SchedulerProcess::isMountParked()
+         // Deduce state of mount - see getParkingStatus in mount.cpp
+         switch (static_cast<ISD::ParkStatus>(parkingStatus.toInt()))
+         {
+-                //            case Mount::PARKING_OK:     // INDI switch ok, and parked
+-                //            case Mount::PARKING_IDLE:   // INDI switch idle, and parked
++            //            case Mount::PARKING_OK:     // INDI switch ok, and parked
++            //            case Mount::PARKING_IDLE:   // INDI switch idle, and parked
+             case ISD::PARK_PARKED:
+                 return true;
+ 
+-                //            case Mount::UNPARKING_OK:   // INDI switch idle or ok, and unparked
+-                //            case Mount::PARKING_ERROR:  // INDI switch error
+-                //            case Mount::PARKING_BUSY:   // INDI switch busy
+-                //            case Mount::UNPARKING_BUSY: // INDI switch busy
++            //            case Mount::UNPARKING_OK:   // INDI switch idle or ok, and unparked
++            //            case Mount::PARKING_ERROR:  // INDI switch error
++            //            case Mount::PARKING_BUSY:   // INDI switch busy
++            //            case Mount::UNPARKING_BUSY: // INDI switch busy
+             default:
+                 return false;
+         }
+@@ -4760,8 +4774,8 @@ void SchedulerProcess::showStartupQueueFailurePopup()
+ 
+     KSMessageBox::Instance()->sorry(i18n("Startup Queue Failed"),
+                                     i18n("The scheduler startup queue has failed:\n\n%1\n\n"
+-         "The scheduler has been stopped. Please check the log for details "
+-         "and correct the issue before restarting.", errorMessage), 30);
++                                         "The scheduler has been stopped. Please check the log for details "
++                                         "and correct the issue before restarting.", errorMessage), 30);
+ }
+ 
+ void SchedulerProcess::resetLatchedStartupErrorIfQueuesDisabled()
+diff --git a/kstars/fitsviewer/fitsdata.cpp b/kstars/fitsviewer/fitsdata.cpp
+index 11c9db240..11135bebc 100644
+--- a/kstars/fitsviewer/fitsdata.cpp
++++ b/kstars/fitsviewer/fitsdata.cpp
+@@ -1426,18 +1426,28 @@ void FITSData::stackFITSLoaded()
+                 }
+                 // We're not plate solving so update sub status to good and emit stats
+                 m_CurrentStack->addSubStatus(true);
+-                emit stackUpdateStats(true, m_StackSubPos, m_StackDirWatcher->getCurrentFiles().size(),
+-                                      m_CurrentStack->getMeanSubSNR(), m_CurrentStack->getMinSubSNR(),
+-                                      m_CurrentStack->getMaxSubSNR());
++                {
++                    int totalStacked = 0;
++                    for (auto &stack : m_Stacks)
++                        if (stack) totalStacked += stack->getNumSubsStacked();
++                    emit stackUpdateStats(true, totalStacked, m_StackDirWatcher->getCurrentFiles().size(),
++                                          m_CurrentStack->getMeanSubSNR(), m_CurrentStack->getMinSubSNR(),
++                                          m_CurrentStack->getMaxSubSNR());
++                }
+             }
+             else
+             {
+                 // Something has gone wrong with this sub so mark it failed and move to the next action
+                 qCDebug(KSTARS_FITS) << "Failed to process sub.";
+                 m_CurrentStack->addSubStatus(false);
+-                emit stackUpdateStats(false, m_StackSubPos, m_StackDirWatcher->getCurrentFiles().size(),
+-                                      m_CurrentStack->getMeanSubSNR(), m_CurrentStack->getMinSubSNR(),
+-                                      m_CurrentStack->getMaxSubSNR());
++                {
++                    int totalStacked = 0;
++                    for (auto &stack : m_Stacks)
++                        if (stack) totalStacked += stack->getNumSubsStacked();
++                    emit stackUpdateStats(false, totalStacked, m_StackDirWatcher->getCurrentFiles().size(),
++                                          m_CurrentStack->getMeanSubSNR(), m_CurrentStack->getMinSubSNR(),
++                                          m_CurrentStack->getMaxSubSNR());
++                }
+             }
+             nextStackAction();
+             break;
+@@ -1610,9 +1620,14 @@ void FITSData::solverDone(const bool timedOut, const bool success, const double
+         if (ok)
+             ok = m_CurrentStack->solverDone(m_StackWCSHandle, timedOut, success, hfr, numStars);
+ 
+-        emit stackUpdateStats(ok, m_StackSubPos, m_StackDirWatcher->getCurrentFiles().size(),
+-                              m_CurrentStack->getMeanSubSNR(), m_CurrentStack->getMinSubSNR(),
+-                              m_CurrentStack->getMaxSubSNR());
++        {
++            int totalStacked = 0;
++            for (auto &stack : m_Stacks)
++                if (stack) totalStacked += stack->getNumSubsStacked();
++            emit stackUpdateStats(ok, totalStacked, m_StackDirWatcher->getCurrentFiles().size(),
++                                  m_CurrentStack->getMeanSubSNR(), m_CurrentStack->getMinSubSNR(),
++                                  m_CurrentStack->getMaxSubSNR());
++        }
+ 
+         // Signal the Plate Solved stage complete to Stack Monitor
+         QVariantMap extraData;
+@@ -3133,7 +3148,7 @@ bool FITSData::saveImage(const QString &newFilename)
+ 
+     int status = 0;
+     long nelements;
+-    fitsfile * new_fptr;
++    fitsfile * new_fptr = nullptr;
+ 
+     if (ext == "xisf")
+     {
+@@ -3184,20 +3199,26 @@ bool FITSData::saveImage(const QString &newFilename)
+     // Read the image back into buffer in case we debyayed
+     nelements = m_Statistics.samples_per_channel * m_Statistics.channels;
+ 
+-    /* close current file */
+-    if (fptr && fits_close_file(fptr, &status))
+-        // We can continue if the close fails, e.g. on a memory file
+-        status = 0;
+-
+-    /* Create a new File, overwriting existing*/
++    /* Create a new file, overwriting existing.
++     * Use a local new_fptr so that fptr is not modified until we are sure the
++     * new file has been created successfully.  This preserves the original code
++     * style and keeps FITSData in a fully usable state on any failure path
++     * (e.g. directory missing, sandbox restriction, disk full). */
+     if (fits_create_file(&new_fptr, QString("!%1").arg(newFilename).toLocal8Bit(), &status))
+     {
+         m_LastError = i18n("Failed to create file: %1", fitsErrorToString(status));
+-        return status;
++        // fptr is unchanged — FITSData stays fully usable after a failed save.
++        return false;
+     }
+ 
+     status = 0;
+ 
++    /* New file created successfully — release the old handle and switch over. */
++    if (fptr)
++    {
++        int closeStatus = 0;
++        fits_close_file(fptr, &closeStatus);
++    }
+     fptr = new_fptr;
+ 
+     // Create image
+diff --git a/kstars/indi/indicamera.cpp b/kstars/indi/indicamera.cpp
+index 1999e347d..c71d0d704 100644
+--- a/kstars/indi/indicamera.cpp
++++ b/kstars/indi/indicamera.cpp
+@@ -415,8 +415,16 @@ void Camera::processSwitch(INDI::Property prop)
+ 
+             if (nvp)
+             {
+-                w = nvp[0].getValue();
+-                h = nvp[1].getValue();
++                // CCD_STREAM_FRAME has four elements: X, Y, WIDTH, HEIGHT.
++                // Access by name so the order of elements in the property vector
++                // doesn't matter and we don't accidentally read X/Y as dimensions.
++                auto warg = nvp.findWidgetByName("WIDTH");
++                auto harg = nvp.findWidgetByName("HEIGHT");
++                if (warg && harg)
++                {
++                    w = warg->getValue();
++                    h = harg->getValue();
++                }
+             }
+ 
+             if (w && h)
+@@ -561,8 +569,16 @@ void Camera::processStream(INDI::Property prop)
+ 
+     if (streamFrame)
+     {
+-        w = streamFrame[0].getValue();
+-        h = streamFrame[1].getValue();
++        // CCD_STREAM_FRAME has four elements: X, Y, WIDTH, HEIGHT.
++        // Access by name so the order of elements in the property vector
++        // doesn't matter and we don't accidentally read X/Y as dimensions.
++        auto warg = streamFrame.findWidgetByName("WIDTH");
++        auto harg = streamFrame.findWidgetByName("HEIGHT");
++        if (warg && harg)
++        {
++            w = warg->getValue();
++            h = harg->getValue();
++        }
+     }
+ 
+     if (w && h)
+diff --git a/kstars/indi/videowg.cpp b/kstars/indi/videowg.cpp
+index 0a85d654f..af74eaffc 100644
+--- a/kstars/indi/videowg.cpp
++++ b/kstars/indi/videowg.cpp
+@@ -65,13 +65,26 @@ bool VideoWG::newFrame(IBLOB *bp)
+         rc = streamImage->loadFromData(static_cast<uchar *>(bp->blob), bp->size);
+     else if (static_cast<uint32_t>(bp->size) == totalBaseCount)
+     {
+-        streamImage.reset(new QImage(static_cast<uchar *>(bp->blob), streamW, streamH, QImage::Format_Indexed8));
+-        streamImage->setColorTable(grayTable);
++        // The blob buffer is owned by the INDI library and may be freed or reused as soon as
++        // newFrame() returns (shared-memory path) or on the next frame (heap path).  Wrap it
++        // in a temporary non-owning QImage only long enough to produce an owned deep copy,
++        // exactly as debayer1394() and debayerCV() do.
++        //
++        // Always supply bytesPerLine explicitly (= streamW * bytes-per-pixel, no padding).
++        // The 4-argument QImage constructor auto-aligns to 4-byte boundaries, so for widths
++        // that are not multiples of 4 (e.g. 406) it would compute bpl=408 and index 2 bytes
++        // past the end of each row, shearing every subsequent row in the display.
++        QImage img(static_cast<uchar *>(bp->blob), streamW, streamH,
++                   static_cast<qsizetype>(streamW), QImage::Format_Indexed8);
++        img.setColorTable(grayTable);
++        streamImage.reset(new QImage(img.copy()));
+         rc = !streamImage->isNull();
+     }
+     else if (static_cast<uint32_t>(bp->size) == totalBaseCount * 3)
+     {
+-        streamImage.reset(new QImage(static_cast<uchar *>(bp->blob), streamW, streamH, QImage::Format_RGB888));
++        QImage img(static_cast<uchar *>(bp->blob), streamW, streamH,
++                   static_cast<qsizetype>(streamW) * 3, QImage::Format_RGB888);
++        streamImage.reset(new QImage(img.copy()));
+         rc = !streamImage->isNull();
+     }
+ 
+@@ -146,9 +159,17 @@ void VideoWG::mouseReleaseEvent(QMouseEvent *event)
+ {
+     if(event->button() == Qt::LeftButton)
+     {
++        if (!rubberBand)
++            return;
++
+         rubberBand->hide();
+ 
+-        if (event->button() == Qt::RightButton)
++        // Guard: kPix must be valid (i.e. at least one frame has been displayed)
++        // and streamImage must be non-null before we compute the scale factors.
++        // If kPix has zero width/height the division below would produce Inf/NaN,
++        // which Qt's checked-integer arithmetic would then abort on.
++        if (kPix.isNull() || kPix.width() <= 0 || kPix.height() <= 0 ||
++                streamImage.isNull() || streamImage->isNull())
+         {
+             emit newSelection(QRect());
+             return;
+@@ -163,10 +184,17 @@ void VideoWG::mouseReleaseEvent(QMouseEvent *event)
+         double scaleX = static_cast<double>(streamImage->width()) / kPix.width();
+         double scaleY = static_cast<double>(streamImage->height()) / kPix.height();
+ 
+-        finalSelection.setX((rawSelection.x() - pixmapX) * scaleX);
+-        finalSelection.setY((rawSelection.y() - pixmapY) * scaleY);
+-        finalSelection.setWidth(rawSelection.width() * scaleX);
+-        finalSelection.setHeight(rawSelection.height() * scaleY);
++        // Protect against NaN / Inf that could arise from unexpected edge cases
++        if (!std::isfinite(scaleX) || !std::isfinite(scaleY))
++        {
++            Q_EMIT newSelection(QRect());
++            return;
++        }
++
++        finalSelection.setX(qRound((rawSelection.x() - pixmapX) * scaleX));
++        finalSelection.setY(qRound((rawSelection.y() - pixmapY) * scaleY));
++        finalSelection.setWidth(qRound(rawSelection.width() * scaleX));
++        finalSelection.setHeight(qRound(rawSelection.height() * scaleY));
+ 
+         emit newSelection(finalSelection);
+         // determine selection, for example using QRect::intersects()
+@@ -240,8 +268,12 @@ bool VideoWG::debayer1394(const IBLOB *bp, const BayerParameters &params, const
+         return false;
+     }
+ 
+-    // Force a deep copy as we're about to free destinationBuffer
+-    QImage img(destinationBuffer, streamW, streamH, QImage::Format_RGB888);
++    // Force a deep copy as we're about to free destinationBuffer.
++    // Pass bytesPerLine explicitly: dc1394 writes a packed buffer (streamW*3 bytes/row,
++    // no padding), but the 4-argument QImage constructor auto-aligns to 4-byte boundaries,
++    // which shears the image for widths that are not multiples of 4.
++    QImage img(destinationBuffer, streamW, streamH,
++               static_cast<qsizetype>(streamW) * 3, QImage::Format_RGB888);
+     streamImage.reset(new QImage(img.copy()));
+     bool rc = !streamImage->isNull();
+ 
+diff --git a/packaging/linux/debian/control b/packaging/linux/debian/control
+index 56f1e0334..d2f8dd6d8 100644
+--- a/packaging/linux/debian/control
++++ b/packaging/linux/debian/control
+@@ -55,7 +55,7 @@ Section: science
+ conflicts: kstars
+ replaces: kstars
+ recommends: xplanet, xplanet-images
+-Depends: ${shlibs:Depends}, ${misc:Depends}, kstars-bleeding-data (>= ${source:Version}), kstars-bleeding-dbg (= ${binary:Version}), kded5, kinit, libindi1, indi-bin, breeze-icon-theme, libqt5sql5-sqlite, qml-module-qtquick-controls
++Depends: ${shlibs:Depends}, ${misc:Depends}, kstars-bleeding-data (>= ${source:Version}), kstars-bleeding-dbg (= ${binary:Version}), kded6, kinit, libindi1, indi-bin, breeze-icon-theme, libqt6sql6-sqlite, qml6-module-qtquick-controls, indi-3rdparty-drivers
+ Description: desktop planetarium for KDE
+  KStars is a desktop planetarium for KDE, depicting an accurate graphical
+  simulation of the night sky, from any location on Earth, at any date and time.
+diff --git a/packaging/linux/debian/rules b/packaging/linux/debian/rules
+index 5226d8541..a0b7ff9a8 100755
+--- a/packaging/linux/debian/rules
++++ b/packaging/linux/debian/rules
+@@ -2,11 +2,6 @@
+ 
+ export DEB_BUILD_MAINT_OPTIONS = optimize=-lto
+ 
+-l10npkgs_firstversion_ok := 4:17.03.90-0~
+-
+-include /usr/share/pkg-kde-tools/qt-kde-team/2/debian-qt-kde.mk
+-include /usr/share/pkg-kde-tools/qt-kde-team/2/l10n-packages.mk
+-
+ override_dh_strip:
+ 	dh_strip --dbg-package=kstars-bleeding-dbg
+ 	
