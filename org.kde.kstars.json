@@ -596,6 +596,10 @@
                         "stable-only": true,
                         "url-template": "https://download.kde.org/stable/kstars/$version/kstars-$version.tar.xz"
                     }
+                },
+                {
+                    "type": "patch",
+                    "path": "kstars-latest-3.8.2-to-release.patch"
                 }
             ]
         }
