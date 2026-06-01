@@ -309,8 +309,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/gphoto/libgphoto2/releases/download/v2.5.33/libgphoto2-2.5.33.tar.bz2",
-                    "sha256": "c55504e725cf44b6ca67e1cd7504ad36dc98d7a0469a9e8d627fd0fb3848aa1d",
+                    "url": "https://github.com/gphoto/libgphoto2/releases/download/v2.5.34/libgphoto2-2.5.34.tar.bz2",
+                    "sha256": "5df9e774eb4ab6087a193afff84dcafe9f666e3443fe29e73e6779f659ff7f28",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 12558,
@@ -521,8 +521,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.2.1.1.tar.gz",
-                    "sha256": "270e0767768dcca6879d6a9f410ad6086b067ea492228c48e03ba3803c718271",
+                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.2.2.tar.gz",
+                    "sha256": "e2069555088b70e118e491840180fe0ef85d12912c145f74dbc51e266dc1c8f2",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6838,
@@ -543,8 +543,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.1.1.tar.gz",
-                    "sha256": "b336df05a4e4313b02264e6cd59ecc78f0b37ac68eb895ffb617ae553a7db12a",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.2.tar.gz",
+                    "sha256": "ea4e90f3549cb28860d0d2a5820734579d4aa5b8c04ba202bc413ce5ffdb0377",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -565,8 +565,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.1.1.tar.gz",
-                    "sha256": "b336df05a4e4313b02264e6cd59ecc78f0b37ac68eb895ffb617ae553a7db12a",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.2.tar.gz",
+                    "sha256": "ea4e90f3549cb28860d0d2a5820734579d4aa5b8c04ba202bc413ce5ffdb0377",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -587,8 +587,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.2/kstars-3.8.2.tar.xz",
-                    "sha256": "aca3f662c06371c3eefcd553a3a687c94ba58a7ae460d0c63907f6cb9f69ced9",
+                    "url": "https://download.kde.org/stable/kstars/3.8.3/kstars-3.8.3.tar.xz",
+                    "sha256": "c5ecfef89587710231e4c93e4d4781ae17276d0344e2da97df54fd6ed86a19d5",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
@@ -596,10 +596,6 @@
                         "stable-only": true,
                         "url-template": "https://download.kde.org/stable/kstars/$version/kstars-$version.tar.xz"
                     }
-                },
-                {
-                    "type": "patch",
-                    "path": "kstars-latest-3.8.2-to-release.patch"
                 }
             ]
         }
