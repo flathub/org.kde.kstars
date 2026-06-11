@@ -490,7 +490,7 @@
             "buildsystem": "autotools",
             "config-opts": [
                 "--enable-tools=no",
-                "--enable-bindings-cxx=no",
+                "--enable-bindings-cxx=yes",
                 "--enable-bindings-python=no"
             ],
             "config-opts": [
@@ -510,8 +510,8 @@
             "name": "libicm20948",
             "buildsystem": "cmake-ninja",
             "config-opts": [
-                "-DCMAKE_INCLUDE_PATH=/app/include",
-                "-DCMAKE_LIBRARY_PATH=/app/lib"
+                "-DGPIOD_INCLUDE_DIR=/app/include",
+                "-DGPIOD_LIBRARIES=/app/lib/libgpiodcxx.so"
             ],
             "sources": [
                 {
