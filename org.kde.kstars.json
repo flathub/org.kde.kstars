@@ -586,7 +586,8 @@
             "config-opts": [
                 "-DBUILD_LIBS=OFF",
                 "-DINDI_INSTALL_UDEV_RULES=OFF",
-                "-DINDI_INSTALL_FIRMWARE=OFF"
+                "-DINDI_INSTALL_FIRMWARE=OFF",
+                "-DWITH_ICM_IMU=ON"
             ],
             "sources": [
                 {
