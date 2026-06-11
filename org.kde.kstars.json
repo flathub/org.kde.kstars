@@ -493,11 +493,6 @@
                 "--enable-bindings-cxx=yes",
                 "--enable-bindings-python=no"
             ],
-            "config-opts": [
-                "--enable-tools=no",
-                "--enable-bindings-cxx=no",
-                "--enable-bindings-python=no"
-            ],
             "sources": [
                 {
                     "type": "git",
