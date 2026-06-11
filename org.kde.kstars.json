@@ -486,6 +486,32 @@
             ]
         },
         {
+            "name": "libgpiod",
+            "buildsystem": "autotools",
+            "config-opts": [
+                "--enable-tools=no",
+                "--enable-bindings-cxx=no"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git",
+                    "tag": "v2.2.4"
+                }
+            ]
+        },
+        {
+            "name": "libicm20948",
+            "buildsystem": "cmake-ninja",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/knro/libicm20948.git",
+                    "branch": "master"
+                }
+            ]
+        },
+        {
             "name": "sentry-native",
             "buildsystem": "cmake-ninja",
             "builddir": true,
