@@ -507,7 +507,7 @@
                 {
                     "type": "git",
                     "url": "https://github.com/knro/libicm20948.git",
-                    "branch": "master"
+                    "commit": "e448d4053fce4c07dcf3156862dfe6eb901f1a3b"
                 }
             ]
         },
