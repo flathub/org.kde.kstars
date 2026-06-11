@@ -588,6 +588,9 @@
         {
             "name": "indi-3rd-party-drivers",
             "buildsystem": "cmake-ninja",
+            "build-options": {
+                "cxxflags": "-Wno-error"
+            },
             "config-opts": [
                 "-DBUILD_LIBS=OFF",
                 "-DINDI_INSTALL_UDEV_RULES=OFF",
