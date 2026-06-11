@@ -490,7 +490,13 @@
             "buildsystem": "autotools",
             "config-opts": [
                 "--enable-tools=no",
-                "--enable-bindings-cxx=no"
+                "--enable-bindings-cxx=no",
+                "--enable-bindings-python=no"
+            ],
+            "config-opts": [
+                "--enable-tools=no",
+                "--enable-bindings-cxx=no",
+                "--enable-bindings-python=no"
             ],
             "sources": [
                 {
@@ -503,6 +509,10 @@
         {
             "name": "libicm20948",
             "buildsystem": "cmake-ninja",
+            "config-opts": [
+                "-DCMAKE_INCLUDE_PATH=/app/include",
+                "-DCMAKE_LIBRARY_PATH=/app/lib"
+            ],
             "sources": [
                 {
                     "type": "git",
@@ -600,6 +610,10 @@
                         "stable-only": true,
                         "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
                     }
+                },
+                {
+                    "type": "patch",
+                    "path": "indi-3rdparty-icm-imu.patch"
                 }
             ]
         },
