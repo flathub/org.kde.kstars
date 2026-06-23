@@ -486,6 +486,48 @@
             ]
         },
         {
+            "name": "libgpiod",
+            "buildsystem": "autotools",
+            "config-opts": [
+                "--enable-tools=no",
+                "--enable-bindings-cxx=yes",
+                "--enable-bindings-python=no"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git",
+                    "tag": "v2.2.4"
+                }
+            ]
+        },
+        {
+            "name": "libicm20948",
+            "buildsystem": "cmake-ninja",
+            "config-opts": [
+                "-DGPIOD_INCLUDE_DIR=/app/include",
+                "-DGPIOD_LIBRARIES=/app/lib/libgpiodcxx.so"
+            ],
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/knro/libicm20948.git",
+                    "commit": "dcda1ea0ffc6991e2a18f44ce93ac8dea9407910"
+                }
+            ]
+        },
+        {
+            "name": "liberfa",
+            "buildsystem": "meson",
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/liberfa/erfa/archive/refs/tags/v2.0.1.tar.gz",
+                    "sha256": "d5469fbd0b212b3c7270c1da15c9bd82f37da9218fc89627f98283d27b416cbf"
+                }
+            ]
+        },
+        {
             "name": "sentry-native",
             "buildsystem": "cmake-ninja",
             "builddir": true,
@@ -557,10 +599,14 @@
         {
             "name": "indi-3rd-party-drivers",
             "buildsystem": "cmake-ninja",
+            "build-options": {
+                "cxxflags": "-Wno-error"
+            },
             "config-opts": [
                 "-DBUILD_LIBS=OFF",
                 "-DINDI_INSTALL_UDEV_RULES=OFF",
-                "-DINDI_INSTALL_FIRMWARE=OFF"
+                "-DINDI_INSTALL_FIRMWARE=OFF",
+                "-DWITH_ICM_IMU=ON"
             ],
             "sources": [
                 {
