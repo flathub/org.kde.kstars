@@ -619,10 +619,6 @@
                         "stable-only": true,
                         "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
                     }
-                },
-                {
-                    "type": "patch",
-                    "path": "indi-3rdparty-icm-imu.patch"
                 }
             ]
         },
