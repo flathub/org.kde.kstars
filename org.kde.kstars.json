@@ -563,8 +563,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.2.3.1.tar.gz",
-                    "sha256": "3be8b3618f844ced78bd6f048985a8935d30eda8437184d5423d10091285606d",
+                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.2.4.1.tar.gz",
+                    "sha256": "455e522190d97fdce4d5f267e61661610b8d9547ceac0f63297ade8a0890bad5",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6838,
@@ -585,8 +585,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.3.1.tar.gz",
-                    "sha256": "bb2b25b09f57be7c1aaad6226802b9f0083b415b93046c7fcbde55237410134a",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.4.tar.gz",
+                    "sha256": "bb1efc5a6a7a00ce34dd5f3817c877d5537050550be8f8654aaa3d3ec08cc5ef",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -611,8 +611,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.3.1.tar.gz",
-                    "sha256": "bb2b25b09f57be7c1aaad6226802b9f0083b415b93046c7fcbde55237410134a",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.4.tar.gz",
+                    "sha256": "bb1efc5a6a7a00ce34dd5f3817c877d5537050550be8f8654aaa3d3ec08cc5ef",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
