@@ -36,6 +36,13 @@
             "name": "eigen",
             "buildsystem": "cmake-ninja",
             "builddir": true,
+            "config-opts": [
+                "-DBUILD_TESTING=OFF",
+                "-DEIGEN_BUILD_BLAS=OFF",
+                "-DEIGEN_BUILD_LAPACK=OFF",
+                "-DEIGEN_BUILD_DEMOS=OFF",
+                "-DEIGEN_BUILD_DOC=OFF"
+            ],
             "cleanup": [
                 "*"
             ],
@@ -457,13 +464,13 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/opencv/opencv/archive/4.13.0.tar.gz",
-                    "sha256": "1d40ca017ea51c533cf9fd5cbde5b5fe7ae248291ddf2af99d4c17cf8e13017d",
+                    "url": "https://github.com/opencv/opencv/archive/refs/tags/5.0.0.tar.gz",
+                    "sha256": "b0528f5a1d379d59d4701cb28c36e22214cc51cf64594e5b56f2d3e6c0233095",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6615,
                         "stable-only": true,
-                        "url-template": "https://github.com/opencv/opencv/archive/$version.tar.gz"
+                        "url-template": "https://github.com/opencv/opencv/archive/refs/tags/$version.tar.gz"
                     }
                 }
             ]
@@ -539,7 +546,7 @@
                 {
                     "type": "git",
                     "url": "https://github.com/getsentry/sentry-native.git",
-                    "tag": "0.13.7"
+                    "tag": "0.16.1"
                 }
             ]
         },
@@ -563,8 +570,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.2.3.1.tar.gz",
-                    "sha256": "3be8b3618f844ced78bd6f048985a8935d30eda8437184d5423d10091285606d",
+                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.2.4.2.tar.gz",
+                    "sha256": "025bf3d5e4edebae86851d3a5d66ba4596a2c3a49f861f7c49d99b421dadf102",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6838,
@@ -585,8 +592,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.3.1.tar.gz",
-                    "sha256": "bb2b25b09f57be7c1aaad6226802b9f0083b415b93046c7fcbde55237410134a",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.4.tar.gz",
+                    "sha256": "bb1efc5a6a7a00ce34dd5f3817c877d5537050550be8f8654aaa3d3ec08cc5ef",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -611,8 +618,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.3.1.tar.gz",
-                    "sha256": "bb2b25b09f57be7c1aaad6226802b9f0083b415b93046c7fcbde55237410134a",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.4.tar.gz",
+                    "sha256": "bb1efc5a6a7a00ce34dd5f3817c877d5537050550be8f8654aaa3d3ec08cc5ef",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -633,7 +640,7 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.3/kstars-3.8.3.tar.xz",
+                    "url": "https://download.kde.org/stable/kstars/3.8.4/kstars-3.8.4.tar.xz",
                     "sha256": "c5ecfef89587710231e4c93e4d4781ae17276d0344e2da97df54fd6ed86a19d5",
                     "x-checker-data": {
                         "is-main-source": true,
@@ -642,11 +649,7 @@
                         "stable-only": true,
                         "url-template": "https://download.kde.org/stable/kstars/$version/kstars-$version.tar.xz"
                     }
-                },
-                {
-                    "type": "patch",
-                    "path": "kstars-stable-3.8.3.patch"
-                }
+                }                
             ]
         }
     ]
