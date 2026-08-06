@@ -81,8 +81,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/HEASARC/cfitsio/archive/refs/tags/cfitsio-4.6.3.tar.gz",
-                    "sha256": "e9f1017e942f4a90d2db8984a7677e9d01a5da877a43ed905b9b5108451a68a0",
+                    "url": "https://github.com/HEASARC/cfitsio/archive/refs/tags/cfitsio-4.6.4.tar.gz",
+                    "sha256": "fb09b18638b0a71fa3c2612aac4fafd29cae8642266ba690803eb95f037a5268",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 270,
@@ -101,8 +101,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.atnf.csiro.au/computing/software/wcs/wcslib-releases/wcslib-8.6.tar.bz2",
-                    "sha256": "e030423605a199ef090fe742bc901a82d9e6b3a77e010e211cdd6d2cd067cd5a",
+                    "url": "https://www.atnf.csiro.au/computing/software/wcs/wcslib-releases/wcslib-8.9.tar.bz2",
+                    "sha256": "82ac09ce5091b0bf06cec8f5cdeec1dabe1d06ba5dfb7ff2bdb0c1680488807b",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7693,
@@ -122,8 +122,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/rlancaste/stellarsolver/archive/refs/tags/2.7.tar.gz",
-                    "sha256": "36ff495f325920b9a23b7c3f7453a99c8d405e0984d4b27da7568625cb6c76c9",
+                    "url": "https://github.com/rlancaste/stellarsolver/archive/refs/tags/2.8.tar.gz",
+                    "sha256": "1456cac5cd67353e19e1c6e57546af052a9302b7fbe2deaa649a44eec45fbec8",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242699,
@@ -181,8 +181,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.libraw.org/data/LibRaw-0.22.0.tar.gz",
-                    "sha256": "1071e6e8011593c366ffdadc3d3513f57c90202d526e133174945ec1dd53f2a1",
+                    "url": "https://www.libraw.org/data/LibRaw-0.22.2.tar.gz",
+                    "sha256": "de86b035655accff8d4010f1a221fdf50d353cb7b1422ba26f14a0db92612cfa",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 1709,
@@ -412,8 +412,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.0/qtdatavis3d-v6.10.0.tar.gz",
-                    "sha256": "827518719d9efa3c7a8521ac89c22fa1a95cf1a8d4401fd3826feaec95a9e77f",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.11.1/qtdatavis3d-v6.11.1.tar.gz",
+                    "sha256": "91dceb9b360eeb7f3db9166579a2db7177c14e27e24faa9aeea846c7cec84194",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
@@ -457,8 +457,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/opencv/opencv/archive/4.13.0.tar.gz",
-                    "sha256": "1d40ca017ea51c533cf9fd5cbde5b5fe7ae248291ddf2af99d4c17cf8e13017d",
+                    "url": "https://github.com/opencv/opencv/archive/5.0.0.tar.gz",
+                    "sha256": "b0528f5a1d379d59d4701cb28c36e22214cc51cf64594e5b56f2d3e6c0233095",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6615,
@@ -633,8 +633,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.3/kstars-3.8.3.tar.xz",
-                    "sha256": "c5ecfef89587710231e4c93e4d4781ae17276d0344e2da97df54fd6ed86a19d5",
+                    "url": "https://download.kde.org/stable/kstars/3.8.4.1/kstars-3.8.4.1.tar.xz",
+                    "sha256": "e58ca61c9d7963892ef9aef8d0b82f88b7e9e9be7a35b137ee1aa2d82030eabd",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
