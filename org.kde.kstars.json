@@ -101,8 +101,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.atnf.csiro.au/computing/software/wcs/wcslib-releases/wcslib-8.6.tar.bz2",
-                    "sha256": "e030423605a199ef090fe742bc901a82d9e6b3a77e010e211cdd6d2cd067cd5a",
+                    "url": "https://www.atnf.csiro.au/computing/software/wcs/wcslib-releases/wcslib-8.9.tar.bz2",
+                    "sha256": "82ac09ce5091b0bf06cec8f5cdeec1dabe1d06ba5dfb7ff2bdb0c1680488807b",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7693,
@@ -181,8 +181,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.libraw.org/data/LibRaw-0.22.0.tar.gz",
-                    "sha256": "1071e6e8011593c366ffdadc3d3513f57c90202d526e133174945ec1dd53f2a1",
+                    "url": "https://www.libraw.org/data/LibRaw-0.22.2.tar.gz",
+                    "sha256": "de86b035655accff8d4010f1a221fdf50d353cb7b1422ba26f14a0db92612cfa",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 1709,
@@ -633,8 +633,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.3/kstars-3.8.3.tar.xz",
-                    "sha256": "c5ecfef89587710231e4c93e4d4781ae17276d0344e2da97df54fd6ed86a19d5",
+                    "url": "https://download.kde.org/stable/kstars/3.8.4.1/kstars-3.8.4.1.tar.xz",
+                    "sha256": "e58ca61c9d7963892ef9aef8d0b82f88b7e9e9be7a35b137ee1aa2d82030eabd",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
