@@ -1,0 +1,609 @@
+diff -ur '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/guide/aiguideprotocol.cpp kstars/kstars/ekos/guide/aiguideprotocol.cpp
+--- kstars_stable/kstars/ekos/guide/aiguideprotocol.cpp	2026-08-06 17:37:52.000000000 +0000
++++ kstars/kstars/ekos/guide/aiguideprotocol.cpp	2026-08-09 08:44:10.703642882 +0000
+@@ -223,19 +223,40 @@
+         // Options::rA/dECProportionalGain() (+ integral gain) before the long
+         // standard-guiding phase runs under it -- see pid_autotune_plan.md §7 for why
+         // this must happen before, not after, the rest of the protocol. On by default.
++        // Each axis/direction/magnitude fires 3 consecutive pulses in the same
++        // direction rather than one; only the first is a true reversal (the previous
++        // combo left the mount going the other way), so it's "cold", while the next
++        // two are "warm" (ProtocolPhase::pulseWarm, already engaged, no direction
++        // change since the last pulse). Comparing cold vs. warm dead-time tells real
++        // mechanical backlash apart from latency that would affect both equally --
++        // this needs no extra pulses or protocol time over the old one-pulse-per-combo
++        // design, just this reordering.
+         if (Options::aIPIDAutoTune())
+         {
+-            for (int rep = 0; rep < 3; rep++)
+-            {
+-                m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",   500, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",   500, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",  1000, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",  1000, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH",  500, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10});
+-            }
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",   500, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",   500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",   500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",   500, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",   500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",   500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",  1000, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",  1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",  1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",  1000, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",  1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",  1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH",  500, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH",  500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH",  500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10, true});
+         }
+ 
+         m_Phases.append({65.0, -45.0, 480, false, false, "", "", 0, 0, 0});
+@@ -263,20 +284,39 @@
+         // train_harmonic.py -- it has never resolved above the noise floor on any
+         // rig tested so far (pid_autotune_plan.md §9.1); flagged there for future
+         // exploration rather than run unconditionally every time. On by default;
+-        // no new slew (runs at Position 1's sky location).
++        // no new slew (runs at Position 1's sky location). Each axis/direction/
++        // magnitude fires 3 consecutive same-direction pulses instead of one: only the
++        // first is a true reversal ("cold"), the next two are "warm" (ProtocolPhase::
++        // pulseWarm, already engaged) -- same total pulse count and protocol time as
++        // before, just reordered so cold vs. warm dead-time can be compared directly.
++        // See pulse_response_fit.py's KAPPA_MAX comment for why the disabled kappa/tau
++        // fit above couldn't make this distinction on its own.
+         if (Options::aIPIDAutoTune())
+         {
+-            for (int rep = 0; rep < 3; rep++)
+-            {
+-                m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",   500, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",   500, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",  1000, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",  1000, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH",  500, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10});
+-                m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10});
+-            }
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",   500, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",   500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",   500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",   500, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",   500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",   500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",  1000, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",  1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "EAST",  1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",  1000, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",  1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "RA", "WEST",  1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH",  500, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH",  500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH",  500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10, true});
++            m_Phases.append({65.0, -45.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10, true});
+         }
+ 
+         // Position 1: 1800s standard guiding (resolves PE to 900s — strain-wave
+@@ -299,20 +339,37 @@
+         // applyPIDAutoTuneGainLock() (called from STATE_PRECHECK once these pulses
+         // are exhausted) computes K/L/tau from them and locks
+         // Options::rA/dECProportionalGain() (+ integral gain) before the rest of the
+-        // protocol runs under it. On by default.
++        // protocol runs under it. On by default. Each axis/direction/magnitude fires 3
++        // consecutive same-direction pulses instead of one -- only the first is a true
++        // reversal ("cold"), the next two are "warm" (ProtocolPhase::pulseWarm) -- so a
++        // confidently-small dead-time finding can also confirm there's no cold-vs-warm
++        // gap, not just that the single-pulse number is small.
+         if (Options::aIPIDAutoTune())
+         {
+-            for (int rep = 0; rep < 3; rep++)
+-            {
+-                m_Phases.append({70.0, 0.0, 0, false, true, "RA", "EAST",   500, 12, 10});
+-                m_Phases.append({70.0, 0.0, 0, false, true, "RA", "WEST",   500, 12, 10});
+-                m_Phases.append({70.0, 0.0, 0, false, true, "RA", "EAST",  1000, 12, 10});
+-                m_Phases.append({70.0, 0.0, 0, false, true, "RA", "WEST",  1000, 12, 10});
+-                m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "NORTH",  500, 12, 10});
+-                m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10});
+-                m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10});
+-                m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10});
+-            }
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "EAST",   500, 12, 10});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "EAST",   500, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "EAST",   500, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "WEST",   500, 12, 10});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "WEST",   500, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "WEST",   500, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "EAST",  1000, 12, 10});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "EAST",  1000, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "EAST",  1000, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "WEST",  1000, 12, 10});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "WEST",  1000, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "RA", "WEST",  1000, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "NORTH",  500, 12, 10});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "NORTH",  500, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "NORTH",  500, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "SOUTH",  500, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "NORTH", 1000, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10, true});
++            m_Phases.append({70.0, 0.0, 0, false, true, "DEC", "SOUTH", 1000, 12, 10, true});
+         }
+ 
+         m_Phases.append({70.0,   0.0, 120, false, false, "", "", 0, 0, 0});
+@@ -971,8 +1028,9 @@
+             m_AbortRetries = 0;
+             m_GuideCallGraceTicks = 0;
+             ProtocolPhase phase = m_Phases.first();
+-            emit protocolLog(QString("Pulse Response: %1 %2 %3ms — preparing...")
+-                             .arg(phase.pulseAxis, phase.pulseDirection).arg(phase.pulseMagnitudeMs));
++            emit protocolLog(QString("Pulse Response: %1 %2 %3ms (%4) — preparing...")
++                             .arg(phase.pulseAxis, phase.pulseDirection).arg(phase.pulseMagnitudeMs)
++                             .arg(phase.pulseWarm ? "warm, same dir as previous" : "cold/reversal"));
+ 
+             m_Guide->setAIFreeDrift(true);
+             m_PulseFrameCount = 0;
+@@ -1047,6 +1105,10 @@
+                     pulseSession["pulse_axis"] = p.pulseAxis;
+                     pulseSession["pulse_direction"] = p.pulseDirection;
+                     pulseSession["pulse_magnitude_ms"] = p.pulseMagnitudeMs;
++                    // false only for a "warm" pulse deliberately fired right after another
++                    // pulse of the same axis/direction/magnitude -- see ProtocolPhase::
++                    // pulseWarm. Every other pulse reverses from whatever came before it.
++                    pulseSession["pulse_is_reversal"] = !p.pulseWarm;
+                     pulseSession["altitude_deg"] = m_TargetAlt;
+                     pulseSession["azimuth_deg"] = m_TargetAz;
+ 
+@@ -1527,12 +1589,56 @@
+                          .arg(axis, perMag.join(", ")));
+         return false;
+     }
++    bool lossModeled = false;
++    double kOverride = 0.0, lossMs = 0.0;
+     if (kMin <= 0.0 || (kMax - kMin) / kMin > K_MAGNITUDE_CONSISTENCY_TOLERANCE)
+     {
+-        emit protocolLog(QString("PID Auto-Tune [%1]: process gain disagrees across pulse magnitudes "
+-                                 "(%2) -- responses are contaminated, keeping current gain.")
+-                         .arg(axis, perMag.join(", ")));
+-        return false;
++        // Short pulses delivering LESS per ms is the signature of a fixed per-pulse loss
++        // (motor ramp / stiction on an axis that starts each pulse at rest):
++        // K(mag) = K_inf * (1 - L/mag). Two magnitudes give two equations -- solve them
++        // instead of refusing, but only inside strict sanity bounds.
++        const double magLo = kByMag.firstKey();
++        const double magHi = kByMag.lastKey();
++        const double kLo = medianOf(kByMag.value(magLo));
++        const double kHi = medianOf(kByMag.value(magHi));
++        double hiSpread = 1.0;
++        {
++            const QVector<double> &hi = kByMag.value(magHi);
++            const double hiMin = *std::min_element(hi.begin(), hi.end());
++            const double hiMax = *std::max_element(hi.begin(), hi.end());
++            const double hiMed = medianOf(hi);
++            if (hiMed > 0.0)
++                hiSpread = (hiMax - hiMin) / hiMed;
++        }
++        // Range-based spread over n~6 samples runs wide; 0.25 keeps a real reliability
++        // bar without rejecting a group whose median is well determined.
++        if (kLo > 0.0 && kLo < kHi && hiSpread <= 0.25)
++        {
++            const double r = kLo / kHi;
++            const double L = (1.0 - r) / (1.0 / magLo - r / magHi);
++            if (L > 0.0 && L < magLo)
++            {
++                const double kInf = kHi / (1.0 - L / magHi);
++                // K_inf must land near what the guider's own calibration implies
++                const double calRatio = kInf * msPerArcsec;
++                if (calRatio > 0.5 && calRatio < 2.0)
++                {
++                    lossModeled = true;
++                    kOverride = kInf;
++                    lossMs = L;
++                }
++            }
++        }
++        if (!lossModeled)
++        {
++            emit protocolLog(QString("PID Auto-Tune [%1]: process gain disagrees across pulse magnitudes "
++                                     "(%2) -- responses are contaminated, keeping current gain.")
++                             .arg(axis, perMag.join(", ")));
++            return false;
++        }
++        emit protocolLog(QString("PID Auto-Tune [%1]: short pulses under-deliver (%2) -- modeled as a "
++                                 "fixed %3ms start-up loss per pulse, true gain %4\"/ms.")
++                         .arg(axis, perMag.join(", ")).arg(lossMs, 0, 'f', 0).arg(kOverride, 0, 'f', 5));
+     }
+ 
+     // The largest pulse has the best signal-to-contamination ratio, so prefer its estimate.
+@@ -1544,7 +1650,7 @@
+                          .arg(axis).arg(kByMag.value(bestMag).size()).arg(bestMag, 0, 'f', 0).arg(MIN_FITS_TO_APPLY));
+         return false;
+     }
+-    const double K   = medianOf(kByMag.value(bestMag));
++    const double K   = lossModeled ? kOverride : medianOf(kByMag.value(bestMag));
+     const double L   = medianOf(lByMag.value(bestMag));
+     const double tau = std::max(medianOf(tFirstByMag.value(bestMag)), L);
+ 
+@@ -1571,9 +1677,22 @@
+         Options::setDECIntegralGain(integralGain);
+     }
+ 
+-    emit protocolLog(QString("PID Auto-Tune [%1]: K=%2\"/ms  L=%3s  tau=%4s  (n=%5 fits) "
+-                             "-- gain %6 -> %7 (locked for the rest of this session)")
+-                     .arg(axis).arg(K, 0, 'f', 5).arg(L, 0, 'f', 2).arg(tau, 0, 'f', 2)
++    QJsonObject live = m_SysIdData.value("pid_autotune_live").toObject();
++    QJsonObject entry;
++    entry["method"] = lossModeled ? "startup_loss_model" : "linear";
++    entry["process_gain_arcsec_per_ms"] = K;
++    if (lossModeled)
++        entry["startup_loss_ms"] = lossMs;
++    entry["per_magnitude"] = perMag.join("; ");
++    entry["applied_proportional_gain"] = proportionalGain;
++    entry["applied_integral_gain"] = integralGain;
++    live[axis.toLower()] = entry;
++    m_SysIdData["pid_autotune_live"] = live;
++
++    emit protocolLog(QString("PID Auto-Tune [%1]: K=%2\"/ms%3 (n=%4 fits; settle within one frame, "
++                             "conservative 0.25/K rule) -- gain %5 -> %6 (locked for the rest of this session)")
++                     .arg(axis).arg(K, 0, 'f', 5)
++                     .arg(lossModeled ? QString(" after removing %1ms/pulse start-up loss").arg(lossMs, 0, 'f', 0) : QString())
+                      .arg(kByMag.value(bestMag).size()).arg(oldGain, 0, 'f', 3).arg(proportionalGain, 0, 'f', 3));
+     return true;
+ }
+diff -ur '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/guide/aiguideprotocol.h kstars/kstars/ekos/guide/aiguideprotocol.h
+--- kstars_stable/kstars/ekos/guide/aiguideprotocol.h	2026-08-06 17:37:52.000000000 +0000
++++ kstars/kstars/ekos/guide/aiguideprotocol.h	2026-08-09 08:44:10.703642882 +0000
+@@ -153,6 +153,15 @@
+             int pulseMagnitudeMs {0};
+             int responseFrames {15};
+             int settleSeconds {30};
++            // True for a pulse fired immediately after another pulse of the same axis/
++            // direction/magnitude (no reversal in between): the mount should already be
++            // engaged in this direction, so any dead-time/backlash gap that shows up on
++            // the preceding ("cold", reversal) pulse should not reappear here. Comparing
++            // cold vs. warm dead-time is how a real mechanical backlash/windup signature
++            // is told apart from e.g. camera/processing latency, which would affect both
++            // equally. See pulse_response_fit.py's KAPPA_MAX comment for why the previous
++            // paired-differencing approach couldn't distinguish these on its own.
++            bool pulseWarm {false};
+         };
+         QList<ProtocolPhase> m_Phases;
+ 
+diff -ur '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/guide/aiguidewizard.cpp kstars/kstars/ekos/guide/aiguidewizard.cpp
+--- kstars_stable/kstars/ekos/guide/aiguidewizard.cpp	2026-08-06 17:37:52.000000000 +0000
++++ kstars/kstars/ekos/guide/aiguidewizard.cpp	2026-08-09 08:44:10.703642882 +0000
+@@ -252,10 +252,16 @@
+ 
+     setButtonText(QWizard::CustomButton1, "Export Logs");
+     setOption(QWizard::HaveCustomButton1, true);
++    setButtonText(QWizard::CustomButton2, i18n("Start New Session"));
++    if (auto *b = button(QWizard::CustomButton2))
++        b->setToolTip(i18n("Return to the first page and run the protocol again. "
++                           "Existing weights stay active until new training completes."));
+     connect(this, &QWizard::customButtonClicked, this, [this](int which)
+     {
+         if (which == QWizard::CustomButton1)
+             slotExportLogs();
++        else if (which == QWizard::CustomButton2)
++            slotStartNewSession();
+     });
+ 
+     progressBar->setValue(0);
+@@ -275,17 +281,18 @@
+     if (Options::aIPIDAutoTune())
+     {
+         text = i18n("PID Auto-Tune is enabled, so this run will measure your mount's response "
+-                     "and automatically determine and lock in the RA/DEC aggressiveness for "
+-                     "you; there is no need to set it beforehand. The AI model is still "
+-                     "trained and locked to your current guide exposure and pulse settings, "
+-                     "so use the values you normally guide with for those.");
++                    "and automatically determine and lock in the RA/DEC aggressiveness for "
++                    "you; there is no need to set it beforehand. The AI model is still "
++                    "trained and locked to your current guide exposure and pulse settings, "
++                    "so use the values you normally guide with for those.");
+     }
+     else
+     {
+         text = i18n("The AI model is trained and locked to your current guide exposure, "
+-                     "aggressiveness, and pulse settings; use the values you normally guide with.");
++                    "aggressiveness, and pulse settings; use the values you normally guide with.");
+     }
+-    lockedSettingsLabel->setText(QString("<html><body><p><span style=\" color:#ff5500;\">%1</span></p></body></html>").arg(text));
++    lockedSettingsLabel->setText(QString("<html><body><p><span style=\" color:#ff5500;\">%1</span></p></body></html>").arg(
++                                     text));
+ }
+ 
+ void AIGuideWizard::showEvent(QShowEvent *event)
+@@ -461,6 +468,9 @@
+         if (running)
+             return false;
+     }
++    // Leaving page 1 forward is the user's explicit "go" for the protocol
++    if (currentId() == 1)
++        m_StartRequested = true;
+     return QWizard::validateCurrentPage();
+ }
+ 
+@@ -468,30 +478,81 @@
+ {
+     QWizard::initializePage(id);
+ 
++    // "Start New Session" is only useful once a run exists to restart from
++    setOption(QWizard::HaveCustomButton2, id >= 2);
++
+     // Page 2 (0-indexed) is the "System Identification Progress" page
+     if (id == 2 && !m_AutoNavigating)
+     {
+-        progressBar->setValue(0);
+-        logTextEdit->clear();
+-        exportOfflineButton->setEnabled(false);
+-
+-        stopButton->setText(i18n("Stop"));
+-        stopButton->setEnabled(true);
+-        disconnect(stopButton, &QPushButton::clicked, this, &AIGuideWizard::slotStartProtocol);
+-        connect(stopButton, &QPushButton::clicked, this, &AIGuideWizard::slotStopProtocol, Qt::UniqueConnection);
++        const auto s = m_Protocol->state();
++        const bool running = s != AIGuideProtocol::STATE_IDLE
++                             && s != AIGuideProtocol::STATE_DONE
++                             && s != AIGuideProtocol::STATE_ERROR
++                             && s != AIGuideProtocol::STATE_TRAINING_DONE;
+ 
+-        // No skipping ahead: the page auto-advances on protocolComplete.
+-        // Deferred: QWizard re-enables its buttons right after initializePage().
+-        QTimer::singleShot(0, this, [this]()
++        if (m_StartRequested && !running)
+         {
+-            if (auto *nextBtn = button(QWizard::NextButton))
+-                nextBtn->setEnabled(false);
+-        });
++            m_StartRequested = false;
++            progressBar->setValue(0);
++            logTextEdit->clear();
++            exportOfflineButton->setEnabled(false);
++
++            stopButton->setText(i18n("Stop"));
++            stopButton->setEnabled(true);
++            disconnect(stopButton, &QPushButton::clicked, this, &AIGuideWizard::slotStartProtocol);
++            connect(stopButton, &QPushButton::clicked, this, &AIGuideWizard::slotStopProtocol, Qt::UniqueConnection);
++
++            // No skipping ahead: the page auto-advances on protocolComplete.
++            // Deferred: QWizard re-enables its buttons right after initializePage().
++            QTimer::singleShot(0, this, [this]()
++            {
++                if (auto *nextBtn = button(QWizard::NextButton))
++                    nextBtn->setEnabled(false);
++            });
+ 
+-        m_Protocol->start(mountTypeCombo->currentText());
++            m_Protocol->start(mountTypeCombo->currentText());
++        }
++        else
++        {
++            // Navigation-only entry: reflect the protocol's state, start nothing
++            m_StartRequested = false;
++            stopButton->setText(running ? i18n("Stop") : i18n("Start"));
++            stopButton->setEnabled(true);
++            disconnect(stopButton, &QPushButton::clicked, this, &AIGuideWizard::slotStartProtocol);
++            disconnect(stopButton, &QPushButton::clicked, this, &AIGuideWizard::slotStopProtocol);
++            connect(stopButton, &QPushButton::clicked, this,
++                    running ? &AIGuideWizard::slotStopProtocol : &AIGuideWizard::slotStartProtocol,
++                    Qt::UniqueConnection);
++            if (running)
++            {
++                QTimer::singleShot(0, this, [this]()
++                {
++                    if (auto *nextBtn = button(QWizard::NextButton))
++                        nextBtn->setEnabled(false);
++                });
++            }
++        }
+     }
+ }
+ 
++// One click back to a clean slate: stop a live protocol, return to the first page.
++// Existing weights stay active until a new training run completes and overwrites them.
++void AIGuideWizard::slotStartNewSession()
++{
++    const auto s = m_Protocol->state();
++    const bool running = s != AIGuideProtocol::STATE_IDLE
++                         && s != AIGuideProtocol::STATE_DONE
++                         && s != AIGuideProtocol::STATE_ERROR
++                         && s != AIGuideProtocol::STATE_TRAINING_DONE;
++    if (running)
++        m_Protocol->stop();
++
++    m_StartRequested = false;
++    m_AutoNavigating = true;
++    restart();
++    m_AutoNavigating = false;
++}
++
+ void AIGuideWizard::appendLog(const QString &message)
+ {
+     QString timeStr = QDateTime::currentDateTime().toString("hh:mm:ss");
+@@ -503,6 +564,7 @@
+     // Navigate to the progress page (page 2) so the user sees logs/progress,
+     // even when called programmatically via DBus/EkosLive.
+     // initializePage(2) handles UI setup and protocol start.
++    m_StartRequested = true;
+     restart();
+     for (int i = 0; i < 2; ++i)
+         next();
+diff -ur '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/guide/aiguidewizard.h kstars/kstars/ekos/guide/aiguidewizard.h
+--- kstars_stable/kstars/ekos/guide/aiguidewizard.h	2026-08-06 17:37:52.000000000 +0000
++++ kstars/kstars/ekos/guide/aiguidewizard.h	2026-08-09 08:44:10.703642882 +0000
+@@ -53,6 +53,7 @@
+ 
+     public slots:
+         Q_INVOKABLE void slotStartProtocol();
++        void slotStartNewSession();
+         Q_INVOKABLE void slotStopProtocol();
+ 
+         void onTrainingResult(bool success, const QJsonObject &result);
+@@ -67,6 +68,9 @@
+ 
+         AIGuideProtocol *m_Protocol { nullptr };
+         bool m_AutoNavigating { false };
++        // Set on the explicit forward transition into the progress page; navigation
++        // (Back, auto-jump, reopen) must never start the protocol by itself.
++        bool m_StartRequested { false };
+         // Combo text we last auto-set (empty if detection never succeeded yet). Re-checked
+         // every time the wizard is shown, but only applied if the combo still shows either
+         // the untouched Designer default or exactly this value, so a manual override
+diff -ur '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/guide/offlinetrainer/pid_autotune.py kstars/kstars/ekos/guide/offlinetrainer/pid_autotune.py
+--- kstars_stable/kstars/ekos/guide/offlinetrainer/pid_autotune.py	2026-08-06 17:37:52.000000000 +0000
++++ kstars/kstars/ekos/guide/offlinetrainer/pid_autotune.py	2026-08-09 08:44:10.706643133 +0000
+@@ -190,9 +190,32 @@
+     if len(k_by_mag) < 2:
+         return {"confidence": "unavailable",
+                 "reason": f"only one usable pulse magnitude ({detail}) -- the cross-magnitude check cannot run"}
++    loss_modeled = False
++    loss_ms = 0.0
+     if k_lo <= 0.0 or (k_hi - k_lo) / k_lo > K_MAGNITUDE_CONSISTENCY_TOLERANCE:
+-        return {"confidence": "unavailable",
+-                "reason": f"process gain disagrees across pulse magnitudes ({detail}) -- responses are contaminated"}
++        # Short pulses delivering LESS per ms is the signature of a fixed per-pulse loss
++        # (ramp/stiction on an at-rest axis): K(mag) = K_inf * (1 - L/mag). Solve the two
++        # magnitudes instead of refusing, inside strict sanity bounds. Mirrors
++        # AIGuideProtocol::computeAndApplyAxisGain().
++        mags = sorted(k_by_mag)
++        mag_lo, mag_hi = mags[0], mags[-1]
++        km_lo, km_hi = k_by_mag[mag_lo], k_by_mag[mag_hi]
++        hi = by_mag[mag_hi]
++        hi_med = float(np.median(hi)) * pixel_scale / mag_hi
++        hi_spread = ((max(hi) - min(hi)) * pixel_scale / mag_hi) / hi_med if hi_med > 0 else 1.0
++        solved = False
++        # range-based spread over n~6 samples runs wide; 0.25 keeps a real bar
++        if 0.0 < km_lo < km_hi and hi_spread <= 0.25:
++            r = km_lo / km_hi
++            L = (1.0 - r) / (1.0 / mag_lo - r / mag_hi)
++            if 0.0 < L < mag_lo:
++                k_inf = km_hi / (1.0 - L / mag_hi)
++                if 0.5 < k_inf * cal_ms_per_arcsec < 2.0:
++                    solved, loss_modeled, loss_ms = True, True, L
++                    k_by_mag[mag_hi] = k_inf   # rung-2 gain flows through the normal path
++        if not solved:
++            return {"confidence": "unavailable",
++                    "reason": f"process gain disagrees across pulse magnitudes ({detail}) -- responses are contaminated"}
+ 
+     # The largest pulse has the best signal-to-contamination ratio.
+     best_mag = max(by_mag)
+@@ -214,8 +237,10 @@
+     confidence = "low" if (resolution_limited or n_fits < MIN_FITS_FOR_MEDIUM_CONFIDENCE) else "medium"
+ 
+     if verbose:
+-        print(f"  [{axis} PID] K={K:.5f} arcsec/ms  tau={tau:.2f}s  L={L:.2f}s  lambda={lam:.2f}s "
+-              f"(n={n_fits} fits @ {best_mag:.0f}ms, cal={cal_ms_per_arcsec:.1f}ms/arcsec)")
++        loss_note = f"  startup_loss={loss_ms:.0f}ms" if loss_modeled else ""
++        print(f"  [{axis} PID] K={K:.5f} arcsec/ms{loss_note} "
++              f"(n={n_fits} fits @ {best_mag:.0f}ms, cal={cal_ms_per_arcsec:.1f}ms/arcsec; "
++              f"settle within one frame, conservative 0.25/K rule)")
+         print(f"  [{axis} PID] Recommended proportional_gain={proportional_gain:.3f}  "
+               f"integral_gain={integral_gain:.3f}  confidence={confidence}")
+ 
+@@ -231,6 +256,8 @@
+         "calibration_ms_per_arcsec":  cal_ms_per_arcsec,
+         "n_fits":                     n_fits,
+         "resolution_limited":         resolution_limited,
++        "startup_loss_ms":            float(loss_ms) if loss_modeled else None,
++        "method":                     "startup_loss_model" if loss_modeled else "linear",
+     }
+ 
+ 
+diff -ur '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/guide/offlinetrainer/pulse_response_fit.py kstars/kstars/ekos/guide/offlinetrainer/pulse_response_fit.py
+--- kstars_stable/kstars/ekos/guide/offlinetrainer/pulse_response_fit.py	2026-08-06 17:37:52.000000000 +0000
++++ kstars/kstars/ekos/guide/offlinetrainer/pulse_response_fit.py	2026-08-09 08:44:10.706643133 +0000
+@@ -25,6 +25,17 @@
+ import numpy as np
+ import scipy.optimize
+ 
++# Raised from 0.9: that bound could clip a real, well-determined kappa before
++# curve_fit even gets a chance to converge on it. The pinned-at-bounds check
++# below (kappa_result > KAPPA_MAX - 0.02) is what actually judges whether a
++# result is trustworthy, so the bound itself doesn't need to double as that
++# judgment. Note kappa->1 is degenerate, not just large: d(0) = P*(1-kappa),
++# so once a curve's first sample sits near 0, P and kappa trade off freely and
++# curve_fit's own covariance on kappa blows up (confirmed on SAL-33 data) --
++# pinning at any bound near 1 is a sign of an unidentified fit, not a measured
++# spring constant.
++KAPPA_MAX = 0.98
++
+ 
+ def fit_pulse_response(sysid: dict, axis: str, guide_exp: float, verbose: bool,
+                        return_fits: bool = False):
+@@ -99,12 +110,12 @@
+                     return P * (1.0 - kappa * np.exp(-t / tau)) + v * t + c
+                 slope0 = (pos_arr[-1] - pos_arr[0]) / max(t_arr[-1] - t_arr[0], 1e-3)
+                 p0 = [pos_arr[-1] - slope0 * t_arr[-1], 0.3, 1.5, slope0, 0.0]
+-                bounds = ([-50.0, 0.0, 0.1, -2.0, -10.0], [50.0, 0.9, 10.0, 2.0, 10.0])
++                bounds = ([-50.0, 0.0, 0.1, -2.0, -10.0], [50.0, KAPPA_MAX, 10.0, 2.0, 10.0])
+             else:
+                 def model(t, P, kappa, tau, c):
+                     return P * (1.0 - kappa * np.exp(-t / tau)) + c
+                 p0 = [pos_arr[-1], 0.3, 1.5, 0.0]
+-                bounds = ([-100.0, 0.0, 0.1, -10.0], [100.0, 0.9, 10.0, 10.0])
++                bounds = ([-100.0, 0.0, 0.1, -10.0], [100.0, KAPPA_MAX, 10.0, 10.0])
+             popt, _ = scipy.optimize.curve_fit(model, t_arr, pos_arr, p0=p0,
+                                                bounds=bounds, maxfev=10000)
+             residual_std = float(np.std(pos_arr - model(t_arr, *popt)))
+@@ -148,11 +159,23 @@
+                 continue
+             tp, pp = cp
+             tn, pn = cn
+-            mask = (tp >= tn[0]) & (tp <= tn[-1])
++            # Sample on whichever curve's own grid started later, interpolating the
++            # other one onto it. Always basing this on tp (as a naive tp>=tn[0] mask
++            # would) drops tp's entire leading frame whenever tp merely happened to
++            # start a fraction of a frame before tn -- an alignment coincidence
++            # between two independently-fired pulses, not a real resolution limit --
++            # which was silently halving the usable lead time on roughly half of all
++            # pairs at fast cadence.
++            if tp[0] >= tn[0]:
++                t_arr_full, base_v, other_t, other_v, base_is_pos = tp, pp, tn, pn, True
++            else:
++                t_arr_full, base_v, other_t, other_v, base_is_pos = tn, pn, tp, pp, False
++            mask = (t_arr_full >= other_t[0]) & (t_arr_full <= other_t[-1])
+             if mask.sum() < 5:
+                 continue
+-            t_arr = tp[mask]
+-            diff = pp[mask] - np.interp(t_arr, tn, pn)
++            t_arr = t_arr_full[mask]
++            interp_v = np.interp(t_arr, other_t, other_v)
++            diff = (base_v[mask] - interp_v) if base_is_pos else (interp_v - base_v[mask])
+             # Sessions are minutes apart so PE does not cancel exactly; v absorbs the leak
+             fit = fit_curve(t_arr, diff, with_drift=True)
+             if fit is None:
+@@ -230,7 +253,7 @@
+     tau_result = float(np.median(taus)) if taus and kappa_result > 0.0 else DEFAULTS[1]
+ 
+     # A median within ~2% of the fit bounds means the model chased noise/drift, not physics.
+-    if kappa_result > 0.88 or tau_result > 9.8:
++    if kappa_result > KAPPA_MAX - 0.02 or tau_result > 9.8:
+         if verbose:
+             print(f"  [{axis}] WARNING: fit pinned at bounds (κ={kappa_result:.3f}, "
+                   f"τ={tau_result:.2f}s) — unphysical. Using defaults (κ=0.2, τ=1.5s).")
+Only in kstars: master_to_stable.patch
