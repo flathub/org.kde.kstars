@@ -88,8 +88,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/HEASARC/cfitsio/archive/refs/tags/cfitsio-4.6.3.tar.gz",
-                    "sha256": "e9f1017e942f4a90d2db8984a7677e9d01a5da877a43ed905b9b5108451a68a0",
+                    "url": "https://github.com/HEASARC/cfitsio/archive/refs/tags/cfitsio-4.7.0.tar.gz",
+                    "sha256": "f281ca292407d8682e83a37ea68fce6e1383d2449d923647ea62fa0570c59aee",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 270,
@@ -108,8 +108,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.atnf.csiro.au/computing/software/wcs/wcslib-releases/wcslib-8.6.tar.bz2",
-                    "sha256": "e030423605a199ef090fe742bc901a82d9e6b3a77e010e211cdd6d2cd067cd5a",
+                    "url": "https://www.atnf.csiro.au/computing/software/wcs/wcslib-releases/wcslib-8.10.tar.bz2",
+                    "sha256": "b394d3306da9a52410f056136911496e599b5c48f1cff2f221563697077bbd8d",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7693,
@@ -188,8 +188,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://www.libraw.org/data/LibRaw-0.22.0.tar.gz",
-                    "sha256": "1071e6e8011593c366ffdadc3d3513f57c90202d526e133174945ec1dd53f2a1",
+                    "url": "https://www.libraw.org/data/LibRaw-0.22.2.tar.gz",
+                    "sha256": "de86b035655accff8d4010f1a221fdf50d353cb7b1422ba26f14a0db92612cfa",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 1709,
@@ -419,8 +419,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.0/qtdatavis3d-v6.10.0.tar.gz",
-                    "sha256": "827518719d9efa3c7a8521ac89c22fa1a95cf1a8d4401fd3826feaec95a9e77f",
+                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.12.0/qtdatavis3d-v6.12.0.tar.gz",
+                    "sha256": "177930f02b97265d77f5d9093e49aa00dd5ec86de004bb4eefe1edaff43e17b9",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
@@ -640,8 +640,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.4.1/kstars-3.8.4.1.tar.xz",
-                    "sha256": "e58ca61c9d7963892ef9aef8d0b82f88b7e9e9be7a35b137ee1aa2d82030eabd",
+                    "url": "https://download.kde.org/stable/kstars/3.8.5/kstars-3.8.5.tar.xz",
+                    "sha256": "18f578944bfba800f7091aef83550d898e0c36bddfe2969f7bb87807df60e5b3",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
