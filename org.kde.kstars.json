@@ -420,7 +420,16 @@
                 {
                     "type": "archive",
                     "url": "https://invent.kde.org/qt/qt/qtgraphs/-/archive/v6.10.2/qtgraphs-v6.10.2.tar.gz",
-                    "sha256": "1cc5845d2e17296138580aa2da57eb594e71fb1bf15f2f7b7888ff85b8d151be"
+                    "sha256": "1cc5845d2e17296138580aa2da57eb594e71fb1bf15f2f7b7888ff85b8d151be",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 7927,
+                        "stable-only": true,
+                        "versions": {
+                            "<": "6.11.0"
+                        },
+                        "url-template": "https://invent.kde.org/qt/qt/qtgraphs/-/archive/v$version/qtgraphs-v$version.tar.gz"
+                    }
                 }
             ]
         },
