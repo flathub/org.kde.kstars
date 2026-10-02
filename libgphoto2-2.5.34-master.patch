@@ -1,0 +1,2118 @@
+diff --git a/camlibs/lumix/lumix.c b/camlibs/lumix/lumix.c
+index 3e3c352a..5fb393f0 100644
+--- a/camlibs/lumix/lumix.c
++++ b/camlibs/lumix/lumix.c
+@@ -1822,7 +1822,7 @@ int camera_abilities (CameraAbilitiesList *list) {
+ 	strcpy(a.model, "Panasonic:LumixGSeries");
+ 	a.status	= GP_DRIVER_STATUS_EXPERIMENTAL;
+ 	a.port		= GP_PORT_IP;
+-	a.operations	= GP_CAPTURE_IMAGE| GP_OPERATION_CAPTURE_VIDEO | GP_OPERATION_CONFIG;
++	a.operations	= GP_OPERATION_CAPTURE_IMAGE | GP_OPERATION_CAPTURE_VIDEO | GP_OPERATION_CONFIG;
+ 	a.file_operations = GP_FILE_OPERATION_PREVIEW  ;
+ 	/* it should be possible to browse and DL images the files using the ReadImageFromCamera() function but for now lets keep it simple*/
+ 	a.folder_operations = GP_FOLDER_OPERATION_NONE;
+diff --git a/camlibs/mustek/mdc800.c b/camlibs/mustek/mdc800.c
+index eef8b601..04bda11a 100644
+--- a/camlibs/mustek/mdc800.c
++++ b/camlibs/mustek/mdc800.c
+@@ -53,7 +53,7 @@ camera_abilities (CameraAbilitiesList *list)
+ 	a.usb_vendor	= 0x055f;
+ 	a.usb_product	= 0xa800;
+ 	a.operations        = 	GP_OPERATION_CAPTURE_PREVIEW |
+-				GP_CAPTURE_IMAGE;
++				GP_OPERATION_CAPTURE_IMAGE;
+ 	a.file_operations   = 	GP_FILE_OPERATION_DELETE |
+ 				GP_FILE_OPERATION_PREVIEW;
+ 	a.folder_operations = 	GP_FOLDER_OPERATION_NONE;
+diff --git a/camlibs/panasonic/coolshot/library.c b/camlibs/panasonic/coolshot/library.c
+index 1a3697f4..40051989 100644
+--- a/camlibs/panasonic/coolshot/library.c
++++ b/camlibs/panasonic/coolshot/library.c
+@@ -358,7 +358,7 @@ int coolshot_check_checksum( char *packet, int length ) {
+ int coolshot_download_image( Camera *camera, CameraFile *file,
+ 		char *buf, int *len, int thumbnail, GPContext *context ) {
+ 	char packet[1024];
+-	int data_len;
++	unsigned int data_len;
+ 	int bytes_read = 0;
+ 	int last_good = 0;
+ 	unsigned int id;
+@@ -377,6 +377,9 @@ int coolshot_download_image( Camera *camera, CameraFile *file,
+ 	data_len = (unsigned char)packet[6] * 256;
+ 	data_len += (unsigned char)packet[7];
+ 
++	if (data_len > sizeof(packet) - 8 - 4)
++		return GP_ERROR_IO;
++
+ 	/* fixme, get rid of hardcoded length */
+ 	if ( coolshot_check_checksum( packet, 8 + packet_size + 4 ) == GP_OK ) {
+ 		coolshot_ack( camera );
+@@ -396,6 +399,9 @@ int coolshot_download_image( Camera *camera, CameraFile *file,
+ 			data_len = (unsigned char)packet[6] * 256;
+ 			data_len += (unsigned char)packet[7];
+ 
++			if (data_len > sizeof(buf) - bytes_read - 8)
++				return GP_ERROR_IO;
++
+ 			memcpy( buf + bytes_read, packet + 8, data_len );
+ 
+ 			bytes_read += data_len;
+@@ -409,6 +415,9 @@ int coolshot_download_image( Camera *camera, CameraFile *file,
+ 		data_len = (unsigned char)packet[6] * 256;
+ 		data_len += (unsigned char)packet[7];
+ 
++		if (data_len > sizeof(packet) - 8 - 4)
++			return GP_ERROR_IO;
++
+ 		/* fixme, get rid of hardcoded length */
+ 		if ( coolshot_check_checksum( packet, 8 + packet_size + 4 ) == GP_OK) {
+ 			coolshot_ack( camera );
+diff --git a/camlibs/ptp2/config.c b/camlibs/ptp2/config.c
+index 94c49953..240750f8 100644
+--- a/camlibs/ptp2/config.c
++++ b/camlibs/ptp2/config.c
+@@ -1463,6 +1463,7 @@ static struct deviceproptableu16 whitebalance[] = {
+ 	{ N_("Color Temperature"),	0x8012, PTP_VENDOR_NIKON },
+ 	{ N_("Preset"),			0x8013, PTP_VENDOR_NIKON },
+ 	{ N_("Off"),			0x8014, PTP_VENDOR_NIKON },
++	{ N_("Flash"),			0x8015, PTP_VENDOR_NIKON },
+ 	{ N_("Natural light auto"),	0x8016, PTP_VENDOR_NIKON },
+ 
+ 	{ N_("Fluorescent Lamp 1"),	0x8001, PTP_VENDOR_FUJI },
+@@ -1550,6 +1551,251 @@ static struct deviceproptableu16 olympus_imageformat[] = {
+ };
+ GENERIC16TABLE(Olympus_Imageformat,olympus_imageformat)
+ 
++static struct deviceproptableu16 olympus_afareasetting[] = {
++	{ N_("All"),			0x8100,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Single"),			0x8801,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Small"),			0x8802,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Cross"),			0x8803,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Mid"),			0x8804,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Large"),			0x8805,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("C1"),			0x8901,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("C2"),			0x8902,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("C3"),			0x8903,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("C4"),			0x8904,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_AFAreaSetting,olympus_afareasetting)
++
++/* AF target position: index = y * 39 + x (0-based). */
++#define OLYMPUS_AF_GRID_W 39
++
++static int
++_get_Olympus_AFPoint(CONFIG_GET_ARGS) {
++	char buf[32];
++	uint16_t v;
++	int x, y;
++
++	if (dpd->DataType != PTP_DTC_UINT16)
++		return GP_ERROR;
++	v = dpd->CurrentValue.u16;
++	y = v / OLYMPUS_AF_GRID_W;
++	x = v % OLYMPUS_AF_GRID_W;
++	sprintf(buf, "%d,%d", x, y);
++	gp_widget_new(GP_WIDGET_TEXT, _(menu->label), widget);
++	gp_widget_set_name(*widget, menu->name);
++	gp_widget_set_value(*widget, buf);
++	return GP_OK;
++}
++
++static int
++_put_Olympus_AFPoint(CONFIG_PUT_ARGS) {
++	char *val;
++	int x = 0, y = 0;
++
++	if (dpd->DataType != PTP_DTC_UINT16)
++		return GP_ERROR;
++	CR(gp_widget_get_value(widget, &val));
++	if (sscanf(val, "%d,%d", &x, &y) != 2) {
++		GP_LOG_E("afpoint expects \"x,y\", got %s", val);
++		return GP_ERROR_BAD_PARAMETERS;
++	}
++	if (x < 0 || y < 0 || x >= OLYMPUS_AF_GRID_W || y > 1000) {
++		GP_LOG_E("afpoint out of range: %d,%d", x, y);
++		return GP_ERROR_BAD_PARAMETERS;
++	}
++	propval->u16 = (uint16_t)(y * OLYMPUS_AF_GRID_W + x);
++	return GP_OK;
++}
++
++
++static struct deviceproptableu16 olympus_drivemode[] = {
++	{ N_("Single"),				0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Silent Single"),			0x0021,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Sequential"),			0x0007,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Silent Sequential"),		0x0027,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("SH1"),				0x0028,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("SH2"),				0x0029,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Pro Capture"),			0x0043,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Pro Capture SH1"),		0x0048,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Pro Capture SH2"),		0x0049,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Self-timer 12s"),			0x0004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Self-timer 2s"),			0x0005,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Silent Self-timer 2s"),		0x0024,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Custom Self-timer"),		0x0006,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_DriveMode,olympus_drivemode)
++
++static struct deviceproptableu16 olympus_lvcloseupmode[] = {
++	{ N_("Mode 1"),			0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Mode 2"),			0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_LVCloseUpMode,olympus_lvcloseupmode)
++
++static struct deviceproptableu16 olympus_liveviewzoom[] = {
++	{ N_("3x"),			0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("5x"),			0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("7x"),			0x0003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("10x"),			0x0004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("14x"),			0x0005,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_LiveViewZoom,olympus_liveviewzoom)
++
++static struct deviceproptableu16 olympus_isoautomode[] = {
++	{ N_("Auto"),	0xffff,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Off"),	0x0000,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("On"),	0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_ISOAutoMode,olympus_isoautomode)
++
++static struct deviceproptableu16 olympus_noisefilter[] = {
++	{ N_("Off"),	0x0000,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("On"),	0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_NoiseFilter,olympus_noisefilter)
++
++static struct deviceproptableu16 olympus_facedetection[] = {
++	{ N_("Off"),				0x0000,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Face"),				0x8001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Face & Eye"),			0x8002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Face & Right Eye"),		0x8003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Face & Left Eye"),		0x8004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_FaceDetection,olympus_facedetection)
++
++static struct deviceproptableu16 olympus_subjectdetection[] = {
++	{ N_("Off"),				0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Motorsports"),			0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Airplanes"),			0x0003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Trains"),				0x0004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Birds"),				0x0005,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Dogs & Cats"),			0x0006,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Human"),				0x0007,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_SubjectDetection,olympus_subjectdetection)
++
++static struct deviceproptableu16 olympus_stillrecordingmode[] = {
++	{ N_("Standard"),			0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Auto Switch"),			0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Dual Independent 1"),		0x0003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Dual Independent 2"),		0x0004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Dual Same 1"),			0x0005,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Dual Same 2"),			0x0006,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_StillRecordingMode,olympus_stillrecordingmode)
++
++static struct deviceproptableu16 olympus_mediaslot[] = {
++	{ N_("Slot 1"),				0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Slot 2"),				0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_MediaSlot,olympus_mediaslot)
++
++static struct deviceproptableu16 olympus_highresshot[] = {
++	{ N_("Off"),		0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Tripod"),		0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Handheld"),	0x0003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_HighResShot,olympus_highresshot)
++
++static struct deviceproptableu16 olympus_highresresolution[] = {
++	{ N_("50M RAW"),	294,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("25M RAW"),	295,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("80M RAW"),	296,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("50M"),		262,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("25M"),		263,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("80M"),		264,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_HighResResolution,olympus_highresresolution)
++
++/* Packed as `(numerator << 16) | denominator` in seconds. */
++static struct deviceproptableu32 olympus_highreswait[] = {
++	{ N_("0 sec"),		0,		PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("1/8 sec"),	65544,		PTP_VENDOR_GP_OLYMPUS_OMD },	/* 1/8 */
++	{ N_("1/4 sec"),	65540,		PTP_VENDOR_GP_OLYMPUS_OMD },	/* 1/4 */
++	{ N_("1/2 sec"),	655380,		PTP_VENDOR_GP_OLYMPUS_OMD },	/* 10/20 */
++	{ N_("1 sec"),		655370,		PTP_VENDOR_GP_OLYMPUS_OMD },	/* 10/10 */
++	{ N_("2 sec"),		1310730,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 20/10 */
++	{ N_("4 sec"),		2621450,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 40/10 */
++	{ N_("8 sec"),		5242890,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 80/10 */
++	{ N_("15 sec"),		9830410,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 150/10 */
++	{ N_("30 sec"),		19660810,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 300/10 */
++};
++GENERIC32TABLE(Olympus_HighResWait,olympus_highreswait)
++
++/* Same packing as olympus_highreswait, except 0 sec -> 10 */
++static struct deviceproptableu32 olympus_highrescharge[] = {
++	{ N_("0 sec"),		10,		PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("0.1 sec"),	65546,		PTP_VENDOR_GP_OLYMPUS_OMD },	/* 1/10 */
++	{ N_("0.2 sec"),	131082,		PTP_VENDOR_GP_OLYMPUS_OMD },	/* 2/10 */
++	{ N_("0.5 sec"),	327690,		PTP_VENDOR_GP_OLYMPUS_OMD },	/* 5/10 */
++	{ N_("1 sec"),		655370,		PTP_VENDOR_GP_OLYMPUS_OMD },	/* 10/10 */
++	{ N_("2 sec"),		1310730,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 20/10 */
++	{ N_("4 sec"),		2621450,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 40/10 */
++	{ N_("8 sec"),		5242890,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 80/10 */
++	{ N_("15 sec"),		9830410,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 150/10 */
++	{ N_("30 sec"),		19660810,	PTP_VENDOR_GP_OLYMPUS_OMD },	/* 300/10 */
++};
++GENERIC32TABLE(Olympus_HighResCharge,olympus_highrescharge)
++
++static struct deviceproptableu16 olympus_hdrmode[] = {
++	{ N_("Off"),		0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("HDR1"),		0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("HDR2"),		0x0003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("3f 2.0EV"),		0x0004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("5f 2.0EV"),		0x0005,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("7f 2.0EV"),		0x0006,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("3f 3.0EV"),	0x0007,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("5f 3.0EV"),	0x0008,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_HDRMode,olympus_hdrmode)
++
++static struct deviceproptableu16 olympus_imagereview[] = {
++	{ N_("Off"),	0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("0.3 sec"),0x0003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("0.5 sec"),0x0004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("1 sec"),	0x0005,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("2 sec"),	0x0006,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("3 sec"),	0x0007,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("4 sec"),	0x0008,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("5 sec"),	0x0009,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("10 sec"),	0x000e,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("15 sec"),	0x0013,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("20 sec"),	0x0018,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_ImageReview,olympus_imagereview)
++
++static struct deviceproptableu16 olympus_releasepriority[] = {
++	{ N_("On"),	0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Off"),	0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_ReleasePriority,olympus_releasepriority)
++
++static struct deviceproptableu16 olympus_exposureprogram[] = {
++	{ N_("M"),	0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("P"),	0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("A"),	0x0003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("S"),	0x0004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Movie"),	0x0008,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("B"),	0x000b,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_ExposureProgram,olympus_exposureprogram)
++
++static struct deviceproptableu16 olympus_custommode[] = {
++	{ N_("C1"),	0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("C2"),	0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("C3"),	0x0003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("C4"),	0x0004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Off"),	0x8001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_CustomMode,olympus_custommode)
++
++static struct deviceproptableu16 olympus_imagestabilizer[] = {
++	{ N_("Off"),		0x0000,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("S-IS 1"),		0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("S-IS 2"),		0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("S-IS 3"),		0x0003,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("S-IS Auto"),	0x0004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_ImageStabilizer,olympus_imagestabilizer)
++
+ static struct deviceproptableu16 fuji_releasemode[] = {
+ 	{ N_("Single frame"),		1,	PTP_VENDOR_FUJI },
+ 	{ N_("Continuous low speed"),	2,	PTP_VENDOR_FUJI },
+@@ -1787,15 +2033,18 @@ _put_ExpCompensation(CONFIG_PUT_ARGS) {
+ 	return GP_OK ;
+ }
+ 
+-/* old method, uses stepping */
+ static int
+ _put_Sony_ExpCompensation(CONFIG_PUT_ARGS) {
+ 	int ret;
++	PTPParams *params = &(camera->pl->params);
+ 
+ 	ret = _put_ExpCompensation(CONFIG_PUT_NAMES);
+ 	if (ret != GP_OK) return ret;
+ 	*alreadyset = 1;
+-	return _put_sony_value_i16 (&camera->pl->params, dpd->DevicePropCode, propval->i16, 0);
++	if (params->sony_mode_ver == 3) {
++		return translate_ptp_result (ptp_sony_setdevicecontrolvaluea (params, dpd->DevicePropCode, propval, PTP_DTC_INT16));
++	}
++	return _put_sony_value_i16 (params, dpd->DevicePropCode, propval->i16, 0);
+ }
+ 
+ /* new method, can set directly */
+@@ -1902,16 +2151,28 @@ static int
+ _get_Canon_EOS_ZoomRange(CONFIG_GET_ARGS) {
+ 	float	f, t, b, s;
+ 
+-/*
+-	if (!(dpd->FormFlag & PTP_DPFF_Range))
+-		return GP_ERROR;
+-*/
+ 	gp_widget_new (GP_WIDGET_RANGE, _(menu->label), widget);
+ 	gp_widget_set_name (*widget,menu->name);
+ 	f = (float)dpd->CurrentValue.u32;
+-	b = 0.0;
+-	t = 1000.0;
+-	s = 1.0;
++	if ((dpd->FormFlag & PTP_DPFF_Enumeration) && dpd->FORM.Enum.NumberOfValues) {
++		unsigned int j;
++
++		/* Some cameras (e.g. PowerShot SX740) report a single-entry
++		 * enumeration here that is really just the upper bound, not a
++		 * full list of legal positions. Treat 0 as the floor and take
++		 * the largest enumerated value as the ceiling either way. */
++		b = 0.0;
++		t = (float)dpd->FORM.Enum.SupportedValue[0].u32;
++		for (j=1; j<dpd->FORM.Enum.NumberOfValues; j++) {
++			float v = (float)dpd->FORM.Enum.SupportedValue[j].u32;
++			if (v > t) t = v;
++		}
++		s = 1.0;
++	} else {
++		b = 0.0;
++		t = 1000.0;
++		s = 1.0;
++	}
+ 	gp_widget_set_range (*widget, b, t, s);
+ 	gp_widget_set_value (*widget, &f);
+ 	return GP_OK;
+@@ -2912,24 +3173,30 @@ _get_Canon_EOS_ImageFormat(CONFIG_GET_ARGS)
+ 	gp_widget_new (GP_WIDGET_RADIO, _(menu->label), widget);
+ 	gp_widget_set_name (*widget, menu->name);
+ 
+-	for (unsigned i = 0; i < dpd->FORM.Enum.NumberOfValues; i++) {
+-		uint16_t val =  dpd->FORM.Enum.SupportedValue[i].u16;
+-		uint8_t val1 = (val >> 8) & 0xFF;
+-		uint8_t val2 = (val >> 0) & 0xFF;
++	/* dpd->FORM.Enum is only valid when FormFlag says so; some cameras
++	 * (e.g. Canon PowerShot SX740) report this property with FormFlag ==
++	 * PTP_DPFF_None, in which case FORM.Enum.NumberOfValues/SupportedValue
++	 * are uninitialized and must not be read. */
++	if (dpd->FormFlag == PTP_DPFF_Enumeration) {
++		for (unsigned i = 0; i < dpd->FORM.Enum.NumberOfValues; i++) {
++			uint16_t val =  dpd->FORM.Enum.SupportedValue[i].u16;
++			uint8_t val1 = (val >> 8) & 0xFF;
++			uint8_t val2 = (val >> 0) & 0xFF;
+ 
+-		const char* name1 = _single_EOS_ImageFormat_name(val1);
+-		const char* name2 = _single_EOS_ImageFormat_name(val2);
++			const char* name1 = _single_EOS_ImageFormat_name(val1);
++			const char* name2 = _single_EOS_ImageFormat_name(val2);
+ 
+-		char buf[12] = { 0 };
+-		strcpy (buf, name1);
+-		if (val2 != 0xFF)
+-			sprintf (buf + strlen(buf), " + %s", name2);
++			char buf[12] = { 0 };
++			strcpy (buf, name1);
++			if (val2 != 0xFF)
++				sprintf (buf + strlen(buf), " + %s", name2);
+ 
+-		gp_widget_add_choice (*widget, buf);
++			gp_widget_add_choice (*widget, buf);
+ 
+-		if (val == dpd->CurrentValue.u16) {
+-			defaultset = 1;
+-			gp_widget_set_value (*widget, buf);
++			if (val == dpd->CurrentValue.u16) {
++				defaultset = 1;
++				gp_widget_set_value (*widget, buf);
++			}
+ 		}
+ 	}
+ 	if (!defaultset) {
+@@ -3065,6 +3332,52 @@ _put_Olympus_ISO(CONFIG_PUT_ARGS)
+ 	return GP_ERROR;
+ }
+ 
++/* OM-1 and later use UINT32 0xd1c0; Auto is 0xffffffff */
++static int
++_get_Olympus_ISO2(CONFIG_GET_ARGS) {
++	int i;
++
++	if (!(dpd->FormFlag & PTP_DPFF_Enumeration))
++		return GP_ERROR;
++	if (dpd->DataType != PTP_DTC_UINT32)
++		return GP_ERROR;
++
++	gp_widget_new (GP_WIDGET_RADIO, _(menu->label), widget);
++	gp_widget_set_name (*widget, menu->name);
++	for (i=0;i<dpd->FORM.Enum.NumberOfValues; i++) {
++		char	buf[20];
++
++		if (dpd->FORM.Enum.SupportedValue[i].u32 == 0xffffffffU) {
++			strcpy(buf,_("Auto"));
++		} else {
++			sprintf(buf,"%u",dpd->FORM.Enum.SupportedValue[i].u32);
++		}
++		gp_widget_add_choice (*widget,buf);
++		if (dpd->FORM.Enum.SupportedValue[i].u32 == dpd->CurrentValue.u32)
++			gp_widget_set_value (*widget,buf);
++	}
++	return GP_OK;
++}
++
++static int
++_put_Olympus_ISO2(CONFIG_PUT_ARGS)
++{
++	char *value;
++	unsigned int	u;
++
++	CR (gp_widget_get_value(widget, &value));
++	if (!strcmp(value,_("Auto"))) {
++		propval->u32 = 0xffffffffU;
++		return GP_OK;
++	}
++
++	if (sscanf(value, "%u", &u)) {
++		propval->u32 = u;
++		return GP_OK;
++	}
++	return GP_ERROR;
++}
++
+ static int
+ _get_Olympus_OMD_Bulb(CONFIG_GET_ARGS) {
+ 	int val;
+@@ -4803,6 +5116,17 @@ static struct deviceproptableu8 nikon_effect_modes[] = {
+ GENERIC8TABLE(NIKON_EffectMode,nikon_effect_modes)
+ 
+ 
++static int
++_get_Olympus_CurrentFocalLength(CONFIG_GET_ARGS) {
++	char	str[32];
++
++	gp_widget_new (GP_WIDGET_TEXT, _(menu->label), widget);
++	gp_widget_set_name (*widget, menu->name);
++	snprintf (str, sizeof (str), "%u mm", dpd->CurrentValue.u16);
++	gp_widget_set_value (*widget, str);
++	return GP_OK;
++}
++
+ static int
+ _get_FocalLength(CONFIG_GET_ARGS) {
+ 	float value_float , start=0.0, end=0.0, step=0.0;
+@@ -5136,6 +5460,10 @@ _get_Olympus_ShutterSpeed(CONFIG_GET_ARGS) {
+ 	gp_widget_set_name (*widget, menu->name);
+ 
+ 	for (i = 0; i<dpd->FORM.Enum.NumberOfValues; i++) {
++		if (dpd->FORM.Enum.SupportedValue[i].u32 == 0xffffffffU) {
++			sprintf(buf,_("Auto"));
++			goto choicefound;
++		}
+ 		if (dpd->FORM.Enum.SupportedValue[i].u32 == 0xfffffffc) {
+ 			sprintf(buf,_("Bulb"));
+ 			goto choicefound;
+@@ -5171,12 +5499,16 @@ choicefound:
+ 		}
+ 	}
+ 	if (!valset) {
+-		x = dpd->CurrentValue.u32>>16;
+-		y = dpd->CurrentValue.u32&0xffff;
+-		if (y == 1) {
+-			sprintf (buf, "%d",x);
++		if (dpd->CurrentValue.u32 == 0xffffffffU) {
++			sprintf(buf,_("Auto"));
+ 		} else {
+-			sprintf (buf, "%d/%d",x,y);
++			x = dpd->CurrentValue.u32>>16;
++			y = dpd->CurrentValue.u32&0xffff;
++			if (y == 1) {
++				sprintf (buf, "%d",x);
++			} else {
++				sprintf (buf, "%d/%d",x,y);
++			}
+ 		}
+ 		gp_widget_set_value (*widget, buf);
+ 	}
+@@ -5190,6 +5522,10 @@ _put_Olympus_ShutterSpeed(CONFIG_PUT_ARGS) {
+ 
+ 	gp_widget_get_value (widget, &value_str);
+ 
++	if (!strcmp(value_str,_("Auto"))) {
++		propval->u32 = 0xffffffffU;
++		return GP_OK;
++	}
+ 	if (!strcmp(value_str,_("Bulb"))) {
+ 		propval->u32 = 0xfffffffc;
+ 		return GP_OK;
+@@ -6402,10 +6738,6 @@ static struct deviceproptableu16 focusmodes[] = {
+ 	{ N_("Single-Servo AF"),0x8001, PTP_VENDOR_FUJI },
+ 	{ N_("Continuous-Servo AF"),0x8002, PTP_VENDOR_FUJI },
+ 
+-	{ N_("Preset MF"),	0x8004, PTP_VENDOR_GP_OLYMPUS_OMD },
+-	{ N_("C-AF"),		0x8002, PTP_VENDOR_GP_OLYMPUS_OMD },
+-	{ N_("S-AF+MF"),	0x8001, PTP_VENDOR_GP_OLYMPUS_OMD },
+-
+ 	{ N_("AF-C"),		0x8004, PTP_VENDOR_SONY },
+ 	{ N_("AF-A"),		0x8005, PTP_VENDOR_SONY },
+ 	{ N_("DMF"),		0x8006, PTP_VENDOR_SONY },
+@@ -6415,6 +6747,17 @@ static struct deviceproptableu16 focusmodes[] = {
+ };
+ GENERIC16TABLE(FocusMode,focusmodes)
+ 
++static struct deviceproptableu16 olympus_focusmodes[] = {
++	{ N_("MF"),		0x0001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("S-AF"),		0x0002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("S-AF+MF"),	0x8001,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("C-AF"),		0x8002,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Preset MF"),	0x8004,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("C-AF+TR"),	0x8005,	PTP_VENDOR_GP_OLYMPUS_OMD },
++	{ N_("Starry Sky AF"),	0x8006,	PTP_VENDOR_GP_OLYMPUS_OMD },
++};
++GENERIC16TABLE(Olympus_FocusMode,olympus_focusmodes)
++
+ /* Sony specific, we need to wait for it settle (around 1 second), otherwise we get trouble later on */
+ static int
+ _put_Sony_FocusMode(CONFIG_PUT_ARGS) {
+@@ -10356,7 +10699,7 @@ _get_Panasonic_Bulb(CONFIG_GET_ARGS) {
+     gp_widget_set_name (*widget, menu->name);
+     val = 0; /* Default: Bulb OFF (0) */
+     gp_widget_set_value (*widget, &val);
+-    
++
+     return (GP_OK);
+ }
+ 
+@@ -10382,14 +10725,14 @@ _put_Panasonic_Bulb(CONFIG_PUT_ARGS)
+     } else {
+         /* Bulb Stop: Opcode 0x9404, Parameter 0x03000013 */
+         ret = ptp_generic_no_data(params, PTP_OC_PANASONIC_InitiateCapture, 1, 0x03000013);
+-        
++
+         /* Opcode 0x9404, Parameter 0x03000019 */
+         /* Lumix Thether software sends this right after Bulb stop is sent. */
+         ptp_generic_no_data(params, PTP_OC_PANASONIC_InitiateCapture, 1, 0x03000019);
+-        
++
+         C_PTP_REP (ret);
+     }
+-    
++
+     return GP_OK;
+ }
+ 
+@@ -11620,8 +11963,10 @@ static struct submenu image_settings_menu[] = {
+ 	{ N_("ISO Speed"),              "iso",                  PTP_DPC_SONY_ISO2,                      PTP_VENDOR_SONY,    PTP_DTC_UINT32, _get_Sony_ISO,                  _put_Sony_ISO2 },
+ 	{ N_("ISO Speed"),              "iso",                  PTP_DPC_SONY_ISO,                       PTP_VENDOR_SONY,    PTP_DTC_UINT32, _get_Sony_ISO,                  _put_Sony_ISO },
+ 	{ N_("ISO Speed"),              "iso",                  PTP_DPC_NIKON_1_ISO,                    PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_1_ISO,               _put_Nikon_1_ISO },
++	{ N_("ISO Speed"),              "iso",                  PTP_DPC_OLYMPUS_ISO2,                   PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT32, _get_Olympus_ISO2,       _put_Olympus_ISO2 },
+ 	{ N_("ISO Speed"),              "iso",                  PTP_DPC_OLYMPUS_ISO,                    PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ISO,        _put_Olympus_ISO },
+ 	{ N_("ISO Speed"),              "iso",                  0,                                      PTP_VENDOR_PANASONIC,   PTP_DTC_UINT32, _get_Panasonic_ISO,         _put_Panasonic_ISO },
++	{ N_("ISO Auto Mode"),          "isoautomode",          PTP_DPC_OLYMPUS_ISOAutoMode,            PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ISOAutoMode, _put_Olympus_ISOAutoMode },
+ 	{ N_("ISO Auto"),               "isoauto",              PTP_DPC_NIKON_ISO_Auto,                 PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_OnOff_UINT8,         _put_Nikon_OnOff_UINT8 },
+ 	{ N_("Auto ISO"),               "autoiso",              PTP_DPC_NIKON_ISOAuto,                  PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_OnOff_UINT8,         _put_Nikon_OnOff_UINT8 },
+ 	{ N_("WhiteBalance"),           "whitebalance",         PTP_DPC_OLYMPUS_WhiteBalance,           PTP_VENDOR_GP_OLYMPUS_OMD,PTP_DTC_UINT16,_get_Olympus_WhiteBalance, _put_Olympus_WhiteBalance },
+@@ -11693,7 +12038,11 @@ static struct submenu capture_settings_menu[] = {
+ 	{ N_("Flash Compensation"),             "flashcompensation",        PTP_DPC_CANON_FlashCompensation,        PTP_VENDOR_CANON,   PTP_DTC_UINT8,  _get_Canon_ExpCompensation,         _put_Canon_ExpCompensation },
+ 	{ N_("AEB Exposure Compensation"),      "aebexpcompensation",       PTP_DPC_CANON_AEBExposureCompensation,  PTP_VENDOR_CANON,   PTP_DTC_UINT8,  _get_Canon_ExpCompensation,         _put_Canon_ExpCompensation },
+ 	{ N_("Flash Mode"),                     "flashmode",                PTP_DPC_CANON_FlashMode,                PTP_VENDOR_CANON,   PTP_DTC_UINT8,  _get_Canon_FlashMode,               _put_Canon_FlashMode },
++	{ N_("Flash Mode"),                     "flashmode",                PTP_DPC_OLYMPUS_FlashMode,              PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_FlashMode,              _put_FlashMode },
+ 	{ N_("Flash Mode"),                     "flashmode",                PTP_DPC_FlashMode,                      0,                  PTP_DTC_UINT16, _get_FlashMode,                     _put_FlashMode },
++	{ N_("Flash Exposure Compensation"),    "flashexposurecompensation", PTP_DPC_OLYMPUS_FlashExposureCompensation, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ExpCompensation, _put_Olympus_ExpCompensation },
++	{ N_("Image Stabilizer"),               "imagestabilization",       PTP_DPC_OLYMPUS_ImageStabilizer,        PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ImageStabilizer, _put_Olympus_ImageStabilizer },
++	{ N_("Noise Filter"),                   "noisefilter",              PTP_DPC_OLYMPUS_NoiseFilter,            PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_NoiseFilter,    _put_Olympus_NoiseFilter },
+ 	{ N_("Nikon Flash Mode"),               "nikonflashmode",           PTP_DPC_NIKON_FlashMode,                PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_InternalFlashMode,       _put_Nikon_InternalFlashMode },
+ 	{ N_("Flash Commander Mode"),           "flashcommandermode",       PTP_DPC_NIKON_FlashCommanderMode,       PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_FlashCommanderMode,      _put_Nikon_FlashCommanderMode },
+ 	{ N_("Flash Commander Power"),          "flashcommanderpower",      PTP_DPC_NIKON_FlashModeCommanderPower,  PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_FlashCommanderPower,     _put_Nikon_FlashCommanderPower },
+@@ -11723,17 +12072,25 @@ static struct submenu capture_settings_menu[] = {
+ 	{ N_("PC Save Image Size"),             "pcsaveimgsize",            PTP_DPC_SONY_PcSaveImageSize,           PTP_VENDOR_SONY,    PTP_DTC_UINT8,  _get_Sony_PcSaveImageSize,          _put_Sony_PcSaveImageSize },
+ 	{ N_("RAW+J PC Save Image"),            "pcsaveimgformat",          PTP_DPC_SONY_PcSaveImageFormat,         PTP_VENDOR_SONY,    PTP_DTC_UINT8,  _get_Sony_PcSaveImageFormat,        _put_Sony_PcSaveImageFormat },
+ 	{ N_("Focus Distance"),                 "focusdistance",            PTP_DPC_FocusDistance,                  0,                  PTP_DTC_UINT16, _get_FocusDistance,                 _put_FocusDistance },
++	{ N_("Focal Length"),                   "focallength",              PTP_DPC_OLYMPUS_CurrentFocalLength,     PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_CurrentFocalLength, _put_None },
+ 	{ N_("Focal Length"),                   "focallength",              PTP_DPC_FocalLength,                    0,                  PTP_DTC_UINT32, _get_FocalLength,                   _put_FocalLength },
+ 	{ N_("Focal Position"),                 "focalposition",            PTP_DPC_SONY_FocalPosition,             PTP_VENDOR_SONY,    PTP_DTC_UINT8,  _get_Sony_FocalPosition,            _put_None },
+ 	{ N_("Focus Mode"),                     "focusmode",                PTP_DPC_FocusMode,                      PTP_VENDOR_SONY,    PTP_DTC_UINT16, _get_FocusMode,                     _put_Sony_FocusMode },
+ 	{ N_("Focus Mode"),                     "focusmode",                PTP_DPC_FocusMode,                      0,                  PTP_DTC_UINT16, _get_FocusMode,                     _put_FocusMode },
+-	{ N_("Focus Mode"),                     "focusmode",                PTP_DPC_OLYMPUS_FocusMode,              PTP_VENDOR_GP_OLYMPUS_OMD,  PTP_DTC_UINT16, _get_FocusMode,             _put_FocusMode },
++	{ N_("Focus Mode"),                     "focusmode",                PTP_DPC_OLYMPUS_FocusMode,              PTP_VENDOR_GP_OLYMPUS_OMD,  PTP_DTC_UINT16, _get_Olympus_FocusMode,     _put_Olympus_FocusMode },
+ 	/* Nikon DSLR have both PTP focus mode and Nikon specific focus mode */
+ 	{ N_("Focus Mode 2"),                   "focusmode2",               PTP_DPC_NIKON_AutofocusMode,            PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_AFMode,                  _put_Nikon_AFMode },
+ 	{ N_("Focus Mode"),                     "focusmode",                PTP_DPC_CANON_EOS_FocusMode,            PTP_VENDOR_CANON,   PTP_DTC_UINT32, _get_Canon_EOS_FocusMode,           _put_Canon_EOS_FocusMode },
+ 	{ N_("Continuous AF"),                  "continuousaf",             PTP_DPC_CANON_EOS_ContinousAFMode,      PTP_VENDOR_CANON,   PTP_DTC_UINT32, _get_Canon_EOS_ContinousAF,         _put_Canon_EOS_ContinousAF },
+ 	{ N_("Effect Mode"),                    "effectmode",               PTP_DPC_EffectMode,                     0,                  PTP_DTC_UINT16, _get_EffectMode,                    _put_EffectMode },
+ 	{ N_("Effect Mode"),                    "effectmode",               PTP_DPC_NIKON_EffectMode,               PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_NIKON_EffectMode,              _put_NIKON_EffectMode },
++	{ N_("AF Area Setting"),                "afareasetting",            PTP_DPC_OLYMPUS_AFAreaSetting,          PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_AFAreaSetting,  _put_Olympus_AFAreaSetting },
++	{ N_("AF Point"),                       "afpoint",                  PTP_DPC_OLYMPUS_AFArea,                 PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_AFPoint,        _put_Olympus_AFPoint },
++	{ N_("Exposure Program"),               "expprogram",               PTP_DPC_OLYMPUS_ExposureProgramMode,    PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ExposureProgram,_put_Olympus_ExposureProgram },
++	{ N_("Custom Mode"),                    "custommode",               PTP_DPC_OLYMPUS_CustomMode,             PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_CustomMode,     _put_Olympus_CustomMode },
++	{ N_("LV Close Up Mode"),               "lvcloseupmode",            PTP_DPC_OLYMPUS_LVCloseUpMode,          PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_LVCloseUpMode,  _put_Olympus_LVCloseUpMode },
++	{ N_("Live View Zoom Ratio"),           "liveviewzoom",             PTP_DPC_OLYMPUS_LiveViewZoomRatio,      PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_LiveViewZoom,   _put_Olympus_LiveViewZoom },
++	{ N_("Custom Mode Dial"),               "custommodedial",           PTP_DPC_OLYMPUS_CustomModeDial,         PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                       _put_INT },
+ 	{ N_("Exposure Program"),               "expprogram",               PTP_DPC_ExposureProgramMode,            0,                  PTP_DTC_UINT16, _get_ExposureProgram,               _put_ExposureProgram },
+ 	{ N_("Exposure Program"),               "expprogram",               PTP_DPC_ExposureProgramMode,            PTP_VENDOR_SONY,    PTP_DTC_UINT32, _get_Sony_ExposureProgram_Mode3,    _put_Sony_ExposureProgram_Mode3 },
+ 	{ N_("Exposure Program"),               "expprogram2",              PTP_DPC_NIKON_1_Mode,                   PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_NIKON_1_ExposureProgram,       _put_NIKON_1_ExposureProgram },
+@@ -11754,10 +12111,11 @@ static struct submenu capture_settings_menu[] = {
+ 	{ N_("Canon Shooting Mode"),            "shootingmode",             PTP_DPC_CANON_ShootingMode,             PTP_VENDOR_CANON,   PTP_DTC_UINT8,  _get_Canon_ShootMode,               _put_Canon_ShootMode },
+ 	{ N_("Canon Auto Exposure Mode"),       "autoexposuremode",         PTP_DPC_CANON_EOS_AutoExposureMode,     PTP_VENDOR_CANON,   PTP_DTC_UINT16, _get_Canon_EOS_AutoExposureMode,    _put_Canon_EOS_AutoExposureMode },
+ 	{ N_("Canon Auto Exposure Mode Dial"),  "autoexposuremodedial",     PTP_DPC_CANON_EOS_AEModeDial,           PTP_VENDOR_CANON,   PTP_DTC_UINT16, _get_Canon_EOS_AutoExposureMode,    _put_Canon_EOS_AutoExposureMode },
++	{ N_("Drive Mode"),                     "drivemode",                PTP_DPC_OLYMPUS_OMD_DriveMode,          PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_DriveMode,      _put_Olympus_DriveMode },
+ 	{ N_("Drive Mode"),                     "drivemode",                PTP_DPC_CANON_EOS_DriveMode,            PTP_VENDOR_CANON,   PTP_DTC_UINT16, _get_Canon_EOS_DriveMode,           _put_Canon_EOS_DriveMode },
+ 	{ N_("Picture Style"),                  "picturestyle",             PTP_DPC_CANON_EOS_PictureStyle,         PTP_VENDOR_CANON,   PTP_DTC_UINT8,  _get_Canon_EOS_PictureStyle,        _put_Canon_EOS_PictureStyle },
+ 	{ N_("Focus Metering Mode"),            "focusmetermode",           PTP_DPC_FocusMeteringMode,              0,                  PTP_DTC_UINT16, _get_FocusMetering,                 _put_FocusMetering },
+-	{ N_("Focus Metering Mode"),            "exposuremetermode",        PTP_DPC_OLYMPUS_ExposureMeteringMode,   PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_ExposureMetering,       _put_ExposureMetering },
++	{ N_("Exposure Metering Mode"),         "exposuremetermode",        PTP_DPC_OLYMPUS_ExposureMeteringMode,   PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_ExposureMetering,       _put_ExposureMetering },
+ 	{ N_("Exposure Metering Mode"),         "exposuremetermode",        PTP_DPC_ExposureMeteringMode,           0,                  PTP_DTC_UINT16, _get_ExposureMetering,              _put_ExposureMetering },
+ 	{ N_("Aperture"),                       "aperture",                 PTP_DPC_OLYMPUS_Aperture,               PTP_VENDOR_GP_OLYMPUS_OMD,   PTP_DTC_UINT16, _get_Olympus_Aperture,     _put_Olympus_Aperture },
+ 	{ N_("Aperture"),                       "aperture",                 PTP_DPC_CANON_Aperture,                 PTP_VENDOR_CANON,   PTP_DTC_UINT16, _get_Canon_Aperture,                _put_Canon_Aperture },
+@@ -11781,6 +12139,7 @@ static struct submenu capture_settings_menu[] = {
+ 	{ N_("Movie Shutter Speed 2"),          "movieshutterspeed",        PTP_DPC_NIKON_MovieShutterSpeed,        PTP_VENDOR_NIKON,   PTP_DTC_UINT32, _get_Nikon_ShutterSpeed,            _put_Nikon_ShutterSpeed },
+ 	/* olympus uses also a 16 bit/16bit separation */
+ 	{ N_("Shutter Speed"),                  "shutterspeed",             PTP_DPC_OLYMPUS_Shutterspeed,           PTP_VENDOR_GP_OLYMPUS_OMD,   PTP_DTC_UINT32, _get_Olympus_ShutterSpeed, _put_Olympus_ShutterSpeed },
++	{ N_("Auto Minimum Shutter Speed"),     "minimumshutterspeed",      PTP_DPC_OLYMPUS_AutoMinimumShutterSpeed, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT32, _get_Olympus_ShutterSpeed, _put_Olympus_ShutterSpeed },
+ 	{ N_("Shutter Speed"),                  "shutterspeed",             PTP_DPC_CANON_EOS_ShutterSpeed,         PTP_VENDOR_CANON,   PTP_DTC_UINT16, _get_Canon_ShutterSpeed,            _put_Canon_ShutterSpeed },
+ 	{ N_("Shutter Speed"),                  "shutterspeed",             PTP_DPC_FUJI_ShutterSpeed,              PTP_VENDOR_FUJI,    PTP_DTC_INT16,  _get_Fuji_ShutterSpeed,             _put_Fuji_ShutterSpeed },
+ 	{ N_("Shutter Speed"),                  "shutterspeed",             PTP_DPC_SONY_ShutterSpeed,              PTP_VENDOR_SONY,    PTP_DTC_UINT32, _get_Sony_ShutterSpeed,             _put_Sony_ShutterSpeed },
+@@ -11800,6 +12159,7 @@ static struct submenu capture_settings_menu[] = {
+ 	{ N_("Live View Exposure Preview"),     "liveviewexposurepreview",  PTP_DPC_NIKON_LiveViewExposurePreview,  PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_OffOn_UINT8,             _put_Nikon_OffOn_UINT8 },
+ 	{ N_("Live View Image Zoom Ratio"),     "liveviewimagezoomratio",   PTP_DPC_NIKON_LiveViewImageZoomRatio,   PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_LiveViewImageZoomRatio,  _put_Nikon_LiveViewImageZoomRatio },
+ 	{ N_("Live View White Balance"),        "liveviewwhitebalance",     PTP_DPC_NIKON_LiveViewWhiteBalance,     PTP_VENDOR_NIKON,   PTP_DTC_UINT16, _get_WhiteBalance,                  _put_WhiteBalance },
++	{ N_("Movie White Balance"),            "moviewhitebalance",        PTP_DPC_NIKON_MovieWhiteBalance,        PTP_VENDOR_NIKON,   PTP_DTC_UINT16, _get_WhiteBalance,                  _put_WhiteBalance },
+ 	{ N_("Live View Size"),                 "liveviewsize",             PTP_DPC_FUJI_LiveViewImageSize,         PTP_VENDOR_FUJI,    PTP_DTC_UINT16, _get_Fuji_LiveViewSize,             _put_Fuji_LiveViewSize },
+ 	{ N_("Live View Size"),                 "liveviewsize",             PTP_DPC_SONY_QX_LiveviewResolution,     PTP_VENDOR_SONY,    PTP_DTC_UINT8,  _get_Sony_QX_LiveViewSize,          _put_Sony_QX_LiveViewSize },
+ 	{ N_("Live View Size"),                 "liveviewsize",             PTP_DPC_CANON_EOS_EVFOutputDevice,      PTP_VENDOR_CANON,   PTP_DTC_UINT32, _get_Canon_LiveViewSize,            _put_Canon_LiveViewSize },
+@@ -11885,6 +12245,45 @@ static struct submenu capture_settings_menu[] = {
+ 	{ N_("Video Mode"),                     "videomode",                PTP_DPC_NIKON_VideoMode,                PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_VideoMode,               _put_Nikon_VideoMode },
+ 	{ N_("Sensor Crop"),                    "sensorcrop",               PTP_DPC_SONY_SensorCrop,                PTP_VENDOR_SONY,    PTP_DTC_UINT8,  _get_Sony_SensorCrop,               _put_Sony_SensorCrop },
+ 	{ N_("HDMI Output Data Depth"),         "hdmioutputdatadepth",      PTP_DPC_NIKON_HDMIOutputDataDepth,      PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_HDMIDataDepth,           _put_Nikon_HDMIDataDepth },
++	{ N_("Face & Eye Detection"),           "facedetection",            PTP_DPC_OLYMPUS_FaceDetection,          PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_FaceDetection,  _put_Olympus_FaceDetection },
++	{ N_("Subject Detection"),              "subjectdetection",         PTP_DPC_OLYMPUS_SubjectDetectionMode,  PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_SubjectDetection,_put_Olympus_SubjectDetection },
++	{ N_("Still Recording Mode"),           "stillrecordingmode",       PTP_DPC_OLYMPUS_StillRecordingMode,     PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_StillRecordingMode,_put_Olympus_StillRecordingMode },
++	{ N_("Still Recording Slot"),           "stillrecordingslot",       PTP_DPC_OLYMPUS_StillRecordingSlot,     PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_MediaSlot,      _put_Olympus_MediaSlot },
++	{ N_("Movie Recording Slot"),           "movierecordingslot",       PTP_DPC_OLYMPUS_MovieRecordingSlot,     PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_MediaSlot,      _put_Olympus_MediaSlot },
++	{ N_("Play Slot"),                      "playslot",                 PTP_DPC_OLYMPUS_PlaySlot,               PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_MediaSlot,      _put_Olympus_MediaSlot },
++	{ N_("High Res Shot"),                  "highresshot",              PTP_DPC_OLYMPUS_HighResShot,            PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_HighResShot,    _put_Olympus_HighResShot },
++	{ N_("High Res Resolution"),            "highresresolution",        PTP_DPC_OLYMPUS_HighResResolution,      PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_HighResResolution,_put_Olympus_HighResResolution },
++	{ N_("High Res Wait Time"),             "highreswait",              PTP_DPC_OLYMPUS_HighResWait,            PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT32, _get_Olympus_HighResWait,    _put_Olympus_HighResWait },
++	{ N_("High Res Charge Time"),           "highrescharge",            PTP_DPC_OLYMPUS_HighResCharge,          PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT32, _get_Olympus_HighResCharge,  _put_Olympus_HighResCharge },
++	{ N_("HDR"),                            "hdrmode",                  PTP_DPC_OLYMPUS_HDRMode,                PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_HDRMode,        _put_Olympus_HDRMode },
++	{ N_("Image Review"),                   "imagereview",              PTP_DPC_OLYMPUS_ImageReview,            PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ImageReview,    _put_Olympus_ImageReview },
++	{ N_("Release Priority S-AF"),          "releaseprioritysaf",       PTP_DPC_OLYMPUS_ReleasePrioritySAF,     PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("Release Priority C-AF"),          "releaseprioritycaf",       PTP_DPC_OLYMPUS_ReleasePriorityCAF,     PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("WB Keep Warm Color"),             "wbkeepwarmcolor",          PTP_DPC_OLYMPUS_WBKeepWarmColor,        PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("Sequential Max FPS"),             "sequentialmaxfps",         PTP_DPC_OLYMPUS_SequentialMaxFPS,       PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("Sequential Frame Count Limiter"), "sequentialframelimiter",   PTP_DPC_OLYMPUS_SequentialFrameCountLimiter, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("Sequential Frame Count Limit"),   "sequentialframelimit",     PTP_DPC_OLYMPUS_SequentialFrameCountLimit, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                 _put_INT },
++	{ N_("Silent Sequential Max FPS"),      "silentsequentialmaxfps",   PTP_DPC_OLYMPUS_SilentSequentialMaxFPS, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("Silent Sequential Frame Count Limiter"),"silentsequentialframelimiter", PTP_DPC_OLYMPUS_SilentSequentialFrameCountLimiter, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("Silent Sequential Frame Count Limit"),"silentsequentialframelimit", PTP_DPC_OLYMPUS_SilentSequentialFrameCountLimit, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,           _put_INT },
++	{ N_("SH1 Max FPS"),                    "sh1maxfps",                PTP_DPC_OLYMPUS_SH1MaxFPS,              PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("SH1 Frame Count Limiter"),        "sh1framelimiter",          PTP_DPC_OLYMPUS_SH1FrameCountLimiter,   PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("SH1 Frame Count Limit"),          "sh1framelimit",            PTP_DPC_OLYMPUS_SH1FrameCountLimit,     PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("SH2 Max FPS"),                    "sh2maxfps",                PTP_DPC_OLYMPUS_SH2MaxFPS,              PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("SH2 Frame Count Limiter"),        "sh2framelimiter",          PTP_DPC_OLYMPUS_SH2FrameCountLimiter,   PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("SH2 Frame Count Limit"),          "sh2framelimit",            PTP_DPC_OLYMPUS_SH2FrameCountLimit,     PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("Pro Capture Max FPS"),            "procapturemaxfps",         PTP_DPC_OLYMPUS_ProCaptureMaxFPS,       PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("Pro Capture Frame Count Limiter"),"procaptureframelimiter",   PTP_DPC_OLYMPUS_ProCaptureFrameCountLimiter, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("Pro Capture Frame Count Limit"),  "procaptureframelimit",     PTP_DPC_OLYMPUS_ProCaptureFrameCountLimit, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("Pro Capture Pre-Shutter Frames"), "procapturepreshutter",     PTP_DPC_OLYMPUS_ProCapturePreShutterFrames, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                 _put_INT },
++	{ N_("Pro Capture SH1 Max FPS"),        "procapturesh1maxfps",      PTP_DPC_OLYMPUS_ProCaptureSH1MaxFPS,    PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("Pro Capture SH1 Frame Count Limiter"),"procapturesh1framelimiter", PTP_DPC_OLYMPUS_ProCaptureSH1FrameCountLimiter, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("Pro Capture SH1 Frame Count Limit"),"procapturesh1framelimit",  PTP_DPC_OLYMPUS_ProCaptureSH1FrameCountLimit, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                 _put_INT },
++	{ N_("Pro Capture SH1 Pre-Shutter Frames"),"procapturesh1preshutter", PTP_DPC_OLYMPUS_ProCaptureSH1PreShutterFrames, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,               _put_INT },
++	{ N_("Pro Capture SH2 Max FPS"),        "procapturesh2maxfps",      PTP_DPC_OLYMPUS_ProCaptureSH2MaxFPS,    PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                   _put_INT },
++	{ N_("Pro Capture SH2 Frame Count Limiter"),"procapturesh2framelimiter", PTP_DPC_OLYMPUS_ProCaptureSH2FrameCountLimiter, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_Olympus_ReleasePriority,_put_Olympus_ReleasePriority },
++	{ N_("Pro Capture SH2 Frame Count Limit"),"procapturesh2framelimit",  PTP_DPC_OLYMPUS_ProCaptureSH2FrameCountLimit, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,                 _put_INT },
++	{ N_("Pro Capture SH2 Pre-Shutter Frames"),"procapturesh2preshutter", PTP_DPC_OLYMPUS_ProCaptureSH2PreShutterFrames, PTP_VENDOR_GP_OLYMPUS_OMD, PTP_DTC_UINT16, _get_INT,               _put_INT },
+ 	{ N_("Face Detection"),                 "facedetection",            PTP_DPC_NIKON_FaceDetection,            PTP_VENDOR_NIKON,   PTP_DTC_UINT8,  _get_Nikon_FaceDetection,           _put_Nikon_FaceDetection },
+ 	{ N_("Movie Servo AF"),                 "movieservoaf",             PTP_DPC_CANON_EOS_MovieServoAF,         PTP_VENDOR_CANON,   PTP_DTC_UINT32, _get_Canon_EOS_MovieServoAF,        _put_Canon_EOS_MovieServoAF },
+ 	{ N_("Image Stabilization"),            "imagestabilization",       PTP_DPC_SONY_ImageStabilization,        PTP_VENDOR_SONY,    PTP_DTC_UINT8,  _get_Sony_ImageStabilization,       _put_Sony_ImageStabilization },
+@@ -12186,8 +12585,9 @@ _get_config (Camera *camera, const char *confname, CameraWidget **outwidget, Cam
+ 			struct submenu *cursub = menus[menuno].submenus+submenuno;
+ 			widget = NULL;
+ 
+-			if (	have_prop(camera,cursub->vendorid,cursub->propid) ||
+-				((cursub->propid == 0) && have_prop(camera,cursub->vendorid,cursub->type))
++			if (	(have_prop(camera,cursub->vendorid,cursub->propid) ||
++				 ((cursub->propid == 0) && have_prop(camera,cursub->vendorid,cursub->type))) &&
++				!have_eos_prop(params,cursub->vendorid,cursub->propid)
+ 			) {
+ 				int			j;
+ 
+@@ -12709,8 +13109,9 @@ _set_config (Camera *camera, const char *confname, CameraWidget *window, GPConte
+ 					continue;
+ 			}
+ 
+-			if (	have_prop(camera,cursub->vendorid,cursub->propid) ||
+-				((cursub->propid == 0) && have_prop(camera,cursub->vendorid,cursub->type))
++			if (	(have_prop(camera,cursub->vendorid,cursub->propid) ||
++				 ((cursub->propid == 0) && have_prop(camera,cursub->vendorid,cursub->type))) &&
++				!have_eos_prop(params,cursub->vendorid,cursub->propid)
+ 			) {
+ 				if ((mode == MODE_SINGLE_SET) && strcmp (confname, cursub->name))
+ 					continue;
+@@ -12973,7 +13374,8 @@ camera_lookup_by_property(Camera *camera, PTPDevicePropDesc *dpd, char **name, c
+ 			widget = NULL;
+ 
+ 			if (	(cursub->propid == propid) &&
+-				have_prop(camera,cursub->vendorid,cursub->propid)
++				have_prop(camera,cursub->vendorid,cursub->propid) &&
++				!have_eos_prop(params,cursub->vendorid,cursub->propid)
+ 			) {
+ 
+ 				/* ok, looking good */
+diff --git a/camlibs/ptp2/fujiptpip.c b/camlibs/ptp2/fujiptpip.c
+index d161f7f2..96d7f199 100644
+--- a/camlibs/ptp2/fujiptpip.c
++++ b/camlibs/ptp2/fujiptpip.c
+@@ -505,6 +505,10 @@ ptp_fujiptpip_getdata (PTPParams* params, PTPContainer* ptp, PTPDataHandler *han
+ 		GP_LOG_D("synthesizing Fuji DeviceInfo");
+ 		xret = handler->putfunc (params, handler->priv, sizeof(hardcoded_deviceinfo),hardcoded_deviceinfo);
+ 	} else {
++		if (dtoh32(hdr.length) < fujiptpip_getdata_payload+4) {
++			GP_LOG_E ("header size %d too small, expected at least 12.",dtoh32(hdr.length));
++			return GP_ERROR;
++		}
+ 		GP_LOG_DATA ((char*)(xdata+fujiptpip_getdata_payload), dtoh32(hdr.length)-fujiptpip_getdata_payload-4, "fujiptpip/getdatda data:");
+ 		xret = handler->putfunc (params, handler->priv,
+ 			dtoh32(hdr.length)-fujiptpip_getdata_payload-4, xdata+fujiptpip_getdata_payload
+@@ -641,7 +645,7 @@ ptp_fujiptpip_init_command_ack (PTPParams* params)
+ 	PTPIPHeader	hdr;
+ 	unsigned char	*data = NULL;
+ 	uint16_t 	ret;
+-	int		i;
++	unsigned int	i;
+ 	unsigned short	*name;
+ 
+ 	ret = ptp_fujiptpip_generic_read (params, params->cmdfd, &hdr, &data, 1);
+@@ -657,8 +661,9 @@ ptp_fujiptpip_init_command_ack (PTPParams* params)
+ 	params->eventpipeid = dtoh32a(&data[ptpip_cmdack_idx]);
+ 	memcpy (params->cameraguid, &data[ptpip_cmdack_guid], 16);
+ 	name = (unsigned short*)&data[ptpip_cmdack_name];
+-	for (i=0;name[i];i++) /* EMPTY */;
++	for (i=0;name[i] && (i + ptpip_cmdack_name <= dtoh32(hdr.length));i++) /* EMPTY */
+ 	params->cameraname = calloc((i+1),sizeof(uint16_t));
++	for (i=0;name[i] && (i + ptpip_cmdack_name <= dtoh32(hdr.length));i++)
+ 	for (i=0;name[i];i++)
+ 		params->cameraname[i] = name[i];
+ 	free (data);
+diff --git a/camlibs/ptp2/library.c b/camlibs/ptp2/library.c
+index 7bf2391a..ef537a0a 100644
+--- a/camlibs/ptp2/library.c
++++ b/camlibs/ptp2/library.c
+@@ -1391,6 +1391,10 @@ static struct {
+ 	/* The A7-RV */
+ 	{"Sony:ILCE-7RM5 (PC Control)",		0x054c, 0x0e0c, PTP_CAP|PTP_CAP_PREVIEW},
+ 
++	/* The A7 V */
++	{"Sony:ILCE-7M5 (MTP mode)",		0x054c, 0x0f50, 0},
++	{"Sony:ILCE-7M5 (PC Control)",		0x054c, 0x0f56, PTP_CAP|PTP_CAP_PREVIEW},
++
+ 	/* via email */
+ 	{"Sony:A6700 (PC Control)",		0x054c, 0x0e78, PTP_CAP|PTP_CAP_PREVIEW},
+ 
+@@ -2791,6 +2795,8 @@ static struct {
+ 	{"Ricoh:GR III (PTP mode)",        	0x25fb, 0x210f, 0},
+ 	/* https://github.com/libmtp/libmtp/issues/148 */
+ 	{"Ricoh:GR IIIx (PTP mode)",        	0x25fb, 0x2115, 0},
++	/* https://github.com/libmtp/libmtp/issues/392 */
++	{ "Ricoh:GR IV (PTP mode)", 		0x25fb, 0x2123, 0},
+ 
+ 	/* Pentax cameras */
+ 	{"Pentax:Optio 43WR",                   0x0a17, 0x000d, 0},
+@@ -2808,6 +2814,8 @@ static struct {
+ 
+ 	/* via email to gphoto-devel */
+ 	{"Pentax:KP (PTP Mode)",		0x25fb, 0x017f, 0},
++	/* Pentax K-3 Mark III Monochrome, USB setting: MTP */
++	{"Pentax:K-3 Mark III Monochrome (PTP Mode)", 0x25fb, 0x018f, 0},
+ 
+ 	{"Sanyo:VPC-C5 (PTP mode)",             0x0474, 0x0230, 0},
+ 	/* https://github.com/gphoto/libgphoto2/issues/497 */
+@@ -3313,13 +3321,9 @@ camera_exit (Camera *camera, GPContext *context)
+ 		case PTP_VENDOR_FUJI:
+ 			CR (camera_unprepare_capture (camera, context));
+ 			break;
+-		case PTP_VENDOR_GP_OLYMPUS_OMD: {
+-			PTPPropValue propval;
+-
+-			propval.u16 = 0;
+-			CR (ptp_setdevicepropvalue (params, 0xD052, &propval, PTP_DTC_UINT16));
++		case PTP_VENDOR_GP_OLYMPUS_OMD:
++			ptp_olympus_exit_pc_mode (params);
+ 			break;
+-		}
+ 		case PTP_VENDOR_GP_LEICA:
+ 			if (ptp_operation_issupported(params, PTP_OC_LEICA_LECloseSession)) {
+ 				if ((exit_result = ptp_leica_leclosesession (params)) != PTP_RC_OK)
+@@ -3853,7 +3857,10 @@ ignoreerror:
+ 				}
+ 				break;
+ 			}
+-			if (ret == PTP_RC_DeviceBusy) {
++			/* Nikon 1 bodies answer a not-yet-ready liveview frame with
++			 * InvalidStatus and an empty data phase; the transaction is
++			 * complete, so the next fetch just needs retrying. */
++			if (ret == PTP_RC_DeviceBusy || ret == PTP_RC_NIKON_InvalidStatus) {
+ 				GP_LOG_D ("busy, retrying after a bit of wait, try %d", tries);
+ 				usleep(10*1000);
+ 				continue;
+@@ -4955,6 +4962,7 @@ camera_sony_capture (Camera *camera, CameraCaptureType type, CameraFilePath *pat
+ 		!strcmp(params->deviceinfo.Model, "ILCE-7M3")		||
+ 		!strcmp(params->deviceinfo.Model, "ILCE-7SM3")		||
+ 		!strcmp(params->deviceinfo.Model, "ILCE-7M4")		||
++		!strcmp(params->deviceinfo.Model, "ILCE-7M5")		||
+ 		!strcmp(params->deviceinfo.Model, "ILCE-9M2")		||
+ 		!strcmp(params->deviceinfo.Model, "ILCE-1")		||
+ 		!strcmp(params->deviceinfo.Model, "ILCE-7C")
+@@ -7726,8 +7734,20 @@ camera_summary (Camera* camera, CameraText* summary, GPContext *context)
+ 
+ 	txt = summary->text;
+ 
+-#define SPACE_LEFT ptp_max(0, summary->text + sizeof (summary->text) - txt)
+-#define APPEND_TXT( ... ) txt += snprintf (txt, SPACE_LEFT, __VA_ARGS__)
++#define SUMMARY_END (summary->text + sizeof (summary->text))
++#define SPACE_LEFT ((int)ptp_max(0, SUMMARY_END - txt))
++#define APPEND_N(n) do { \
++	int _sn = (n); \
++	if (_sn > 0) { \
++		if ((size_t)_sn >= (size_t)SPACE_LEFT) \
++			txt = SUMMARY_END; \
++		else \
++			txt += _sn; \
++	} \
++} while (0)
++#define APPEND_TXT(...) APPEND_N(snprintf (txt, SPACE_LEFT, __VA_ARGS__))
++#define APPEND_PTP(data, dt) APPEND_N(snprintf_ptp_property (txt, SPACE_LEFT, (data), (dt)))
++#define APPEND_PROPVAL(dpc, dpd) APPEND_N(ptp_render_property_value (params, (dpc), (dpd), SPACE_LEFT, txt))
+ 
+ 	APPEND_TXT (_("Manufacturer: %s\n"),params->deviceinfo.Manufacturer);
+ 	APPEND_TXT (_("Model: %s\n"),params->deviceinfo.Model);
+@@ -7755,7 +7775,7 @@ camera_summary (Camera* camera, CameraText* summary, GPContext *context)
+ 	APPEND_TXT (_("\nCapture Formats: "));
+ 
+ 	for (i=0;i<params->deviceinfo.CaptureFormats_len;i++) {
+-		txt += ptp_render_ofc (params, params->deviceinfo.CaptureFormats[i], SPACE_LEFT, txt);
++		APPEND_N(ptp_render_ofc (params, params->deviceinfo.CaptureFormats[i], SPACE_LEFT, txt));
+ 		if (i<params->deviceinfo.CaptureFormats_len-1)
+ 			APPEND_TXT (" ");
+ 	}
+@@ -7763,7 +7783,7 @@ camera_summary (Camera* camera, CameraText* summary, GPContext *context)
+ 
+ 	APPEND_TXT (_("Display Formats: "));
+ 	for (i=0;i<params->deviceinfo.ImageFormats_len;i++) {
+-		txt += ptp_render_ofc (params, params->deviceinfo.ImageFormats[i], SPACE_LEFT, txt);
++		APPEND_N(ptp_render_ofc (params, params->deviceinfo.ImageFormats[i], SPACE_LEFT, txt));
+ 		if (i<params->deviceinfo.ImageFormats_len-1)
+ 			APPEND_TXT (", ");
+ 	}
+@@ -7816,7 +7836,7 @@ camera_summary (Camera* camera, CameraText* summary, GPContext *context)
+ 			uint32_t propcnt = 0;
+ 
+ 			APPEND_TXT ("\t");
+-			txt += ptp_render_ofc (params, params->deviceinfo.ImageFormats[i], SPACE_LEFT, txt);
++			APPEND_N(ptp_render_ofc (params, params->deviceinfo.ImageFormats[i], SPACE_LEFT, txt));
+ 			APPEND_TXT ("/%04x:", params->deviceinfo.ImageFormats[i]);
+ 
+ 			ret = ptp_mtp_getobjectpropssupported (params, params->deviceinfo.ImageFormats[i], &propcnt, &props);
+@@ -7825,7 +7845,7 @@ camera_summary (Camera* camera, CameraText* summary, GPContext *context)
+ 			} else {
+ 				for (j=0;j<propcnt;j++) {
+ 					APPEND_TXT (" %04x/",props[j]);
+-					txt += ptp_render_mtp_propname(props[j],SPACE_LEFT,txt);
++					APPEND_N(ptp_render_mtp_propname(props[j],SPACE_LEFT,txt));
+ 				}
+ 				free(props);
+ 			}
+@@ -7980,11 +8000,16 @@ camera_summary (Camera* camera, CameraText* summary, GPContext *context)
+ 	 */
+ 	C_PTP_REP (ptp_getdeviceinfo (params, &pdi));
+ 	CR (fixup_cached_deviceinfo (camera, &pdi));
++	/* Property name lookup uses params->deviceinfo.VendorExtensionID. */
++	params->deviceinfo.VendorExtensionID = pdi.VendorExtensionID;
+ 	for (i=0;i<pdi.DeviceProps_len;i++) {
+ 		PTPDevicePropDesc dpd;
+ 		unsigned int dpc = pdi.DeviceProps[i];
+ 		const char *propname = ptp_get_property_description (params, dpc);
+ 
++		if (SPACE_LEFT <= 1)
++			break;
++
+ 		/* drop the "EOS_" prefix */
+ 		if (propname && strncmp(propname, "EOS_", 4) == 0)
+ 			propname += 4;
+@@ -8010,39 +8035,47 @@ camera_summary (Camera* camera, CameraText* summary, GPContext *context)
+ 			case PTP_DPFF_None:	break;
+ 			case PTP_DPFF_Range: {
+ 				APPEND_TXT ("Range [");
+-				txt += snprintf_ptp_property (txt, SPACE_LEFT, &dpd.FORM.Range.MinValue, dpd.DataType);
++				APPEND_PTP (&dpd.FORM.Range.MinValue, dpd.DataType);
+ 				APPEND_TXT (" - ");
+-				txt += snprintf_ptp_property (txt, SPACE_LEFT, &dpd.FORM.Range.MaxValue, dpd.DataType);
++				APPEND_PTP (&dpd.FORM.Range.MaxValue, dpd.DataType);
+ 				APPEND_TXT (", step ");
+-				txt += snprintf_ptp_property (txt, SPACE_LEFT, &dpd.FORM.Range.StepSize, dpd.DataType);
++				APPEND_PTP (&dpd.FORM.Range.StepSize, dpd.DataType);
+ 				APPEND_TXT ("] value: ");
+ 				break;
+ 			}
+-			case PTP_DPFF_Enumeration:
++			case PTP_DPFF_Enumeration: {
++				unsigned int n_enum = dpd.FORM.Enum.NumberOfValues;
++				unsigned int n_print = n_enum;
++
++				if (n_print > 64)
++					n_print = 64;
+ 				APPEND_TXT ("Enumeration [");
+ 				if ((dpd.DataType & PTP_DTC_ARRAY_MASK) == PTP_DTC_ARRAY_MASK)
+ 					APPEND_TXT ("\n\t");
+-				for (j = 0; j<dpd.FORM.Enum.NumberOfValues; j++) {
+-					txt += snprintf_ptp_property (txt, SPACE_LEFT, dpd.FORM.Enum.SupportedValue+j, dpd.DataType);
+-					if (j+1 != dpd.FORM.Enum.NumberOfValues) {
++				for (j = 0; j < n_print; j++) {
++					APPEND_PTP (dpd.FORM.Enum.SupportedValue + j, dpd.DataType);
++					if (j + 1 != n_print) {
+ 						APPEND_TXT (",");
+ 						if ((dpd.DataType & PTP_DTC_ARRAY_MASK) == PTP_DTC_ARRAY_MASK)
+ 							APPEND_TXT ("\n\t");
+ 					}
+ 				}
++				if (n_print < n_enum)
++					APPEND_TXT (", ... (%u values)", n_enum);
+ 				if ((dpd.DataType & PTP_DTC_ARRAY_MASK) == PTP_DTC_ARRAY_MASK)
+ 					APPEND_TXT ("\n\t");
+ 				APPEND_TXT ("] value: ");
+ 				break;
+ 			}
++			}
+ 			txt_marker = txt;
+-			txt += ptp_render_property_value(params, dpc, &dpd, SPACE_LEFT, txt);
++			APPEND_PROPVAL (dpc, &dpd);
+ 			if (txt != txt_marker) {
+ 				APPEND_TXT (" (");
+-				txt += snprintf_ptp_property (txt, SPACE_LEFT, &dpd.CurrentValue, dpd.DataType);
++				APPEND_PTP (&dpd.CurrentValue, dpd.DataType);
+ 				APPEND_TXT (")");
+ 			} else {
+-				txt += snprintf_ptp_property (txt, SPACE_LEFT, &dpd.CurrentValue, dpd.DataType);
++				APPEND_PTP (&dpd.CurrentValue, dpd.DataType);
+ 			}
+ 		} else {
+ 			APPEND_TXT (" -- ---): ");
+@@ -8053,8 +8086,12 @@ camera_summary (Camera* camera, CameraText* summary, GPContext *context)
+ 	}
+ 	ptp_free_deviceinfo (&pdi);
+ 	return (GP_OK);
+-#undef SPACE_LEFT
++#undef APPEND_PROPVAL
++#undef APPEND_PTP
++#undef APPEND_N
+ #undef APPEND_TXT
++#undef SPACE_LEFT
++#undef SUMMARY_END
+ }
+ 
+ static uint32_t
+@@ -8179,7 +8216,9 @@ generic_list_func (PTPParams *params, const char *folder, int is_directory, Came
+ 
+ 		/* GP_LOG_D ("adding 0x%08x to folder", ob->oid); */
+ 
+-#if 0 /* TODO: Axel disabled this for its performance panalty and questionable value. */
++		/* TODO: Axel disabled this for its performance panalty and questionable value. */
++		/* Marcus: Needed for Iphones still, as they duplicate filenames. See https://github.com/gphoto/libgphoto2/issues/1238 */
++
+ 		/* HP Photosmart 850, the camera tends to duplicate filename in the list.
+ 		* Original patch by clement.rezvoy@gmail.com */
+ 		/* search backwards, likely gets hits faster. */
+@@ -8190,7 +8229,6 @@ generic_list_func (PTPParams *params, const char *folder, int is_directory, Came
+ 				ob->oi.Filename, folder);
+ 			continue;
+ 		}
+-#endif
+ 		CR(gp_list_append (list, ob->oi.Filename, NULL));
+ 	}
+ 
+diff --git a/camlibs/ptp2/ptp.c b/camlibs/ptp2/ptp.c
+index da8a3393..bba5d6be 100644
+--- a/camlibs/ptp2/ptp.c
++++ b/camlibs/ptp2/ptp.c
+@@ -1304,8 +1304,13 @@ ptp_olympus_init_pc_mode (PTPParams* params)
+ 
+ 	ptp_debug (params,"PTP: (Olympus Init) switching to PC mode...");
+ 
++	params->olympus_camera_control_mode = 2;
++	ret = ptp_getdevicepropvalue (params, PTP_DPC_OLYMPUS_CameraControlMode, &propval, PTP_DTC_UINT16);
++	if (ret == PTP_RC_OK)
++		params->olympus_camera_control_mode = propval.u16;
++
+ 	propval.u16 = 1;
+-	ret = ptp_setdevicepropvalue (params, 0xD052, &propval, PTP_DTC_UINT16);
++	ret = ptp_setdevicepropvalue (params, PTP_DPC_OLYMPUS_CameraControlMode, &propval, PTP_DTC_UINT16);
+ 	usleep(100000);
+ 
+ 	for(i = 0; i < 2; i++) {
+@@ -1339,6 +1344,33 @@ ptp_olympus_init_pc_mode (PTPParams* params)
+ 	return ret;
+ }
+ 
++uint16_t
++ptp_olympus_exit_pc_mode (PTPParams* params)
++{
++	uint16_t		ret;
++	PTPPropValue		propval;
++	PTPContainer		event;
++	int			i;
++
++	ptp_debug (params,"PTP: (Olympus Exit) leaving PC mode...");
++
++	propval.u16 = params->olympus_camera_control_mode;
++	if (!propval.u16)
++		propval.u16 = 2;
++
++	ret = ptp_setdevicepropvalue (params, PTP_DPC_OLYMPUS_CameraControlMode, &propval, PTP_DTC_UINT16);
++	usleep(100000);
++
++	for (i = 0; i < 2; i++) {
++		ptp_check_event (params);
++		if (ptp_get_one_event(params, &event))
++			break;
++		usleep(100000);
++	}
++
++	return ret;
++}
++
+ uint16_t
+ ptp_olympus_liveview_image (PTPParams* params, unsigned char **data, unsigned int *size)
+ {
+@@ -3436,7 +3468,10 @@ fallback:
+ 			ob->oi.Handle = *phandle;
+ 			ob->flags = 0;
+ 			/* root directory list files might return all files, so avoid tagging it */
+-			if (handle != PTP_HANDLER_SPECIAL && handle) {
++			/* except on Apple, as they have parentobject of 0x1, see https://github.com/gphoto/libgphoto2/issues/1258  */
++			if (	((handle != PTP_HANDLER_SPECIAL) && handle) ||
++				(params->deviceinfo.Manufacturer && !strcmp (params->deviceinfo.Manufacturer, "Apple Inc."))
++			) {
+ 				ptp_debug (params, "  parent 0x%08x", handle);
+ 				if (*phandle == handle) { /* EOS bug where handle == parent(handle) */
+ 					ob->oi.ParentObject = 0;
+@@ -4610,6 +4645,18 @@ static struct {
+ 	{ PTP_DPC_SONY_ZoomOperation, PTP_DTC_INT8, PTP_DPFF_Range },
+ 	{ PTP_DPC_SONY_SaveZoomAndFocusPosition, PTP_DTC_UINT8, PTP_DPFF_Enumeration },
+ 	{ PTP_DPC_SONY_LoadZoomAndFocusPosition, PTP_DTC_UINT8, PTP_DPFF_Enumeration },
++	/* These six are listed in DeviceInfo.DeviceProps but never returned by
++	 * SDIO_GetAllExtDevicePropInfo. Without these rows the config.c widgets
++	 * (Focus Magnifier / Remote Key {Up,Down,Left,Right}) fail to bind on
++	 * sony_mode_ver==3 bodies (A7C / A7S III / A7 IV / Z9-class).
++	 * _put_Sony_FocusMagnifyProp writes raw u16 1/2, so only DataType matters;
++	 * FormFlag follows the adjacent ManualFocusAdjust (press-and-hold) entry. */
++	{ PTP_DPC_SONY_FocusMagnifier,       PTP_DTC_UINT16, PTP_DPFF_Range },
++	{ PTP_DPC_SONY_FocusMagnifierCancel, PTP_DTC_UINT16, PTP_DPFF_Range },
++	{ PTP_DPC_SONY_RemoteKeyUp,          PTP_DTC_UINT16, PTP_DPFF_Range },
++	{ PTP_DPC_SONY_RemoteKeyDown,        PTP_DTC_UINT16, PTP_DPFF_Range },
++	{ PTP_DPC_SONY_RemoteKeyLeft,        PTP_DTC_UINT16, PTP_DPFF_Range },
++	{ PTP_DPC_SONY_RemoteKeyRight,       PTP_DTC_UINT16, PTP_DPFF_Range },
+ };
+ 
+ /**
+@@ -5066,6 +5113,8 @@ ptp_nikon_getwifiprofilelist (PTPParams* params)
+ 
+ 	profn = 0;
+ 	while (profn < params->wifi_profiles_number && pos < size) {
++		unsigned int tocopy;
++
+ 		if (pos+6 >= size)
+ 			goto error;
+ 		params->wifi_profiles[profn].id    = dtoh8o(data, pos);
+@@ -5074,8 +5123,11 @@ ptp_nikon_getwifiprofilelist (PTPParams* params)
+ 		n = dtoh32o(data, pos);
+ 		if (pos+n+4 >= size)
+ 			goto error;
+-		strncpy(params->wifi_profiles[profn].profile_name, (char*)&data[pos], n);
+-		params->wifi_profiles[profn].profile_name[16] = '\0';
++		tocopy = n;
++		if (tocopy >= sizeof(params->wifi_profiles[profn].profile_name))
++			tocopy = sizeof(params->wifi_profiles[profn].profile_name)-1;
++		strncpy(params->wifi_profiles[profn].profile_name, (char*)&data[pos], tocopy);
++		params->wifi_profiles[profn].profile_name[sizeof(params->wifi_profiles[profn].profile_name)-1] = '\0';
+ 		pos += n;
+ 
+ 		params->wifi_profiles[profn].display_order = dtoh8o(data, pos);
+@@ -5084,7 +5136,8 @@ ptp_nikon_getwifiprofilelist (PTPParams* params)
+ 
+ 		if (!ptp_unpack_string(params, data, &pos, size, &buffer))
+ 			goto error;
+-		strncpy(params->wifi_profiles[profn].creation_date, buffer, sizeof(params->wifi_profiles[profn].creation_date));
++		strncpy(params->wifi_profiles[profn].creation_date, buffer, sizeof(params->wifi_profiles[profn].creation_date)-1);
++		params->wifi_profiles[profn].creation_date[sizeof(params->wifi_profiles[profn].creation_date)-1] = '\0';
+ 		free (buffer);
+ 		if (pos+1 >= size)
+ 			goto error;
+@@ -5099,8 +5152,11 @@ ptp_nikon_getwifiprofilelist (PTPParams* params)
+ 		n = dtoh32o(data, pos);
+ 		if (pos+n >= size)
+ 			goto error;
+-		strncpy(params->wifi_profiles[profn].essid, (char*)data + pos, n);
+-		params->wifi_profiles[profn].essid[32] = '\0';
++		tocopy = n;
++		if (tocopy >= sizeof(params->wifi_profiles[profn].essid))
++			tocopy = sizeof(params->wifi_profiles[profn].essid)-1;
++		strncpy(params->wifi_profiles[profn].essid, (char*)data + pos, tocopy);
++		params->wifi_profiles[profn].essid[sizeof(params->wifi_profiles[profn].essid)-1] = '\0';
+ 		pos += n;
+ 		pos += 1;
+ 		profn++;
+@@ -7638,6 +7694,363 @@ ptp_get_property_description(PTPParams* params, uint32_t dpc)
+ 		{0,NULL}
+ 	};
+ 
++	struct {
++		uint16_t dpc;
++		const char *txt;
++} ptp_device_properties_Olympus[] = {
++		{PTP_DPC_OLYMPUS_PropertyD001, N_("Property D001")},	/* 0xd001 */
++		{PTP_DPC_OLYMPUS_Aperture, N_("Aperture")},	/* 0xd002 */
++		{PTP_DPC_OLYMPUS_FocusMode, N_("Focus Mode")},	/* 0xd003 */
++		{PTP_DPC_OLYMPUS_ExposureMeteringMode, N_("Focus Metering Mode")},	/* 0xd004 */
++		{PTP_DPC_OLYMPUS_FlashMode, N_("Flash Mode")},	/* 0xd005 */
++		{PTP_DPC_OLYMPUS_ExposureProgramMode, N_("Exposure Program")},	/* 0xd006 */
++		{PTP_DPC_OLYMPUS_ISO, N_("ISO Speed")},	/* 0xd007 */
++		{PTP_DPC_OLYMPUS_ISO2, N_("ISO Speed")},	/* 0xd1c0 */
++		{PTP_DPC_OLYMPUS_SubjectDetectionMode, N_("Subject Detection Mode")},	/* 0xd1d0 */
++		{PTP_DPC_OLYMPUS_HighResShot, N_("High Res Shot")},	/* 0xd1b9 */
++		{PTP_DPC_OLYMPUS_SequentialMaxFPS, N_("Sequential Max FPS")},	/* 0xd1a1 */
++		{PTP_DPC_OLYMPUS_SequentialFrameCountLimiter, N_("Sequential Frame Count Limiter")},	/* 0xd1a2 */
++		{PTP_DPC_OLYMPUS_SequentialFrameCountLimit, N_("Sequential Frame Count Limit")},	/* 0xd1a3 */
++		{PTP_DPC_OLYMPUS_SilentSequentialMaxFPS, N_("Silent Sequential Max FPS")},	/* 0xd1a4 */
++		{PTP_DPC_OLYMPUS_SilentSequentialFrameCountLimiter, N_("Silent Sequential Frame Count Limiter")},	/* 0xd1a5 */
++		{PTP_DPC_OLYMPUS_SilentSequentialFrameCountLimit, N_("Silent Sequential Frame Count Limit")},	/* 0xd1a6 */
++		{PTP_DPC_OLYMPUS_SH1MaxFPS, N_("SH1 Max FPS")},	/* 0xd1a7 */
++		{PTP_DPC_OLYMPUS_SH1FrameCountLimiter, N_("SH1 Frame Count Limiter")},	/* 0xd1a8 */
++		{PTP_DPC_OLYMPUS_SH1FrameCountLimit, N_("SH1 Frame Count Limit")},	/* 0xd1a9 */
++		{PTP_DPC_OLYMPUS_SH2MaxFPS, N_("SH2 Max FPS")},	/* 0xd1aa */
++		{PTP_DPC_OLYMPUS_SH2FrameCountLimiter, N_("SH2 Frame Count Limiter")},	/* 0xd1ab */
++		{PTP_DPC_OLYMPUS_SH2FrameCountLimit, N_("SH2 Frame Count Limit")},	/* 0xd1ac */
++		{PTP_DPC_OLYMPUS_ProCaptureMaxFPS, N_("Pro Capture Max FPS")},	/* 0xd1ad */
++		{PTP_DPC_OLYMPUS_ProCaptureFrameCountLimiter, N_("Pro Capture Frame Count Limiter")},	/* 0xd1ae */
++		{PTP_DPC_OLYMPUS_ProCaptureFrameCountLimit, N_("Pro Capture Frame Count Limit")},	/* 0xd1af */
++		{PTP_DPC_OLYMPUS_ProCapturePreShutterFrames, N_("Pro Capture Pre-Shutter Frames")},	/* 0xd1b0 */
++		{PTP_DPC_OLYMPUS_ProCaptureSH1MaxFPS, N_("Pro Capture SH1 Max FPS")},	/* 0xd1b1 */
++		{PTP_DPC_OLYMPUS_ProCaptureSH1FrameCountLimiter, N_("Pro Capture SH1 Frame Count Limiter")},	/* 0xd1b2 */
++		{PTP_DPC_OLYMPUS_ProCaptureSH1FrameCountLimit, N_("Pro Capture SH1 Frame Count Limit")},	/* 0xd1b3 */
++		{PTP_DPC_OLYMPUS_ProCaptureSH1PreShutterFrames, N_("Pro Capture SH1 Pre-Shutter Frames")},	/* 0xd1b4 */
++		{PTP_DPC_OLYMPUS_ProCaptureSH2MaxFPS, N_("Pro Capture SH2 Max FPS")},	/* 0xd1b5 */
++		{PTP_DPC_OLYMPUS_ProCaptureSH2FrameCountLimiter, N_("Pro Capture SH2 Frame Count Limiter")},	/* 0xd1b6 */
++		{PTP_DPC_OLYMPUS_ProCaptureSH2FrameCountLimit, N_("Pro Capture SH2 Frame Count Limit")},	/* 0xd1b7 */
++		{PTP_DPC_OLYMPUS_ProCaptureSH2PreShutterFrames, N_("Pro Capture SH2 Pre-Shutter Frames")},	/* 0xd1b8 */
++		{PTP_DPC_OLYMPUS_CustomMode, N_("Custom Mode")},	/* 0xd174 */
++		{PTP_DPC_OLYMPUS_ExposureCompensation, N_("Exposure Compensation")},	/* 0xd008 */
++		{PTP_DPC_OLYMPUS_OMD_DriveMode, N_("Drive Mode")},	/* 0xd009 */
++		{PTP_DPC_OLYMPUS_AFAreaSetting, N_("AF Area Setting")},	/* 0xd00c */
++		{PTP_DPC_OLYMPUS_ImageFormat, N_("Image Format")},	/* 0xd00d */
++		{PTP_DPC_OLYMPUS_ColorTemperature, N_("Color Temperature")},	/* 0xd00e */
++		{PTP_DPC_OLYMPUS_FlashExposureCompensation, N_("Flash Exposure Compensation")},	/* 0xd00f */
++		{PTP_DPC_OLYMPUS_WhiteBalancePreset, N_("White Balance Preset")},	/* 0xd010 */
++		{PTP_DPC_OLYMPUS_NoiseFilter, N_("Noise Filter")},	/* 0xd011 */
++		{PTP_DPC_OLYMPUS_AFReleasePriority, N_("AF Release Priority")},	/* 0xd013 */
++		{PTP_DPC_OLYMPUS_ShutterReleasePriority, N_("Shutter Release Priority")},	/* 0xd014 */
++		{PTP_DPC_OLYMPUS_ISOAutoMode, N_("ISO Auto Mode")},	/* 0xd018 */
++		{PTP_DPC_OLYMPUS_FaceDetection, N_("Face & Eye Detection")},	/* 0xd01a */
++		{PTP_DPC_OLYMPUS_AspectRatio, N_("Aspect Ratio")},	/* 0xd01b */
++		{PTP_DPC_OLYMPUS_Shutterspeed, N_("Shutter Speed")},	/* 0xd01c */
++		{PTP_DPC_OLYMPUS_ImageStabilizer, N_("Image Stabilizer")},	/* 0xd01d */
++		{PTP_DPC_OLYMPUS_WhiteBalance, N_("White Balance")},	/* 0xd01e */
++		{PTP_DPC_OLYMPUS_WBKeepWarmColor, N_("WB Keep Warm Color")},	/* 0xd01f */
++		{PTP_DPC_OLYMPUS_BracketSettingB, N_("Bracket Setting B")},	/* 0xd020 */
++		{PTP_DPC_OLYMPUS_BracketSettingC, N_("Bracket Setting C")},	/* 0xd021 */
++		{PTP_DPC_OLYMPUS_BracketSettingD, N_("Bracket Setting D")},	/* 0xd022 */
++		{PTP_DPC_OLYMPUS_BracketSettingE, N_("Bracket Setting E")},	/* 0xd023 */
++		{PTP_DPC_OLYMPUS_BracketSettingF, N_("Bracket Setting F")},	/* 0xd024 */
++		{PTP_DPC_OLYMPUS_BracketExposureCompensationA, N_("Bracket Exposure Compensation A")},	/* 0xd025 */
++		{PTP_DPC_OLYMPUS_BracketExposureCompensationB, N_("Bracket Exposure Compensation B")},	/* 0xd026 */
++		{PTP_DPC_OLYMPUS_BracketExposureCompensationC, N_("Bracket Exposure Compensation C")},	/* 0xd027 */
++		{PTP_DPC_OLYMPUS_BracketExposureCompensationD, N_("Bracket Exposure Compensation D")},	/* 0xd028 */
++		{PTP_DPC_OLYMPUS_BracketShutterSpeed1, N_("Bracket Shutter Speed 1")},	/* 0xd029 */
++		{PTP_DPC_OLYMPUS_BracketShutterSpeed2, N_("Bracket Shutter Speed 2")},	/* 0xd02a */
++		{PTP_DPC_OLYMPUS_BracketShutterSpeed3, N_("Bracket Shutter Speed 3")},	/* 0xd02b */
++		{PTP_DPC_OLYMPUS_BracketShutterSpeed4, N_("Bracket Shutter Speed 4")},	/* 0xd02c */
++		{PTP_DPC_OLYMPUS_BracketAperture1, N_("Bracket Aperture 1")},	/* 0xd02d */
++		{PTP_DPC_OLYMPUS_BracketAperture2, N_("Bracket Aperture 2")},	/* 0xd02e */
++		{PTP_DPC_OLYMPUS_BracketAperture3, N_("Bracket Aperture 3")},	/* 0xd02f */
++		{PTP_DPC_OLYMPUS_BracketAperture4, N_("Bracket Aperture 4")},	/* 0xd030 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation01, N_("My Mode Exposure Compensation 01")},	/* 0xd031 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation02, N_("My Mode Exposure Compensation 02")},	/* 0xd032 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation03, N_("My Mode Exposure Compensation 03")},	/* 0xd033 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation04, N_("My Mode Exposure Compensation 04")},	/* 0xd034 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation05, N_("My Mode Exposure Compensation 05")},	/* 0xd035 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation06, N_("My Mode Exposure Compensation 06")},	/* 0xd036 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation07, N_("My Mode Exposure Compensation 07")},	/* 0xd037 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation08, N_("My Mode Exposure Compensation 08")},	/* 0xd038 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation09, N_("My Mode Exposure Compensation 09")},	/* 0xd039 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation10, N_("My Mode Exposure Compensation 10")},	/* 0xd03a */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation11, N_("My Mode Exposure Compensation 11")},	/* 0xd03b */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation12, N_("My Mode Exposure Compensation 12")},	/* 0xd03c */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation13, N_("My Mode Exposure Compensation 13")},	/* 0xd03d */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation14, N_("My Mode Exposure Compensation 14")},	/* 0xd03e */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation15, N_("My Mode Exposure Compensation 15")},	/* 0xd03f */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation16, N_("My Mode Exposure Compensation 16")},	/* 0xd040 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation17, N_("My Mode Exposure Compensation 17")},	/* 0xd041 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation18, N_("My Mode Exposure Compensation 18")},	/* 0xd042 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation19, N_("My Mode Exposure Compensation 19")},	/* 0xd043 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation20, N_("My Mode Exposure Compensation 20")},	/* 0xd044 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation21, N_("My Mode Exposure Compensation 21")},	/* 0xd045 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation22, N_("My Mode Exposure Compensation 22")},	/* 0xd046 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation23, N_("My Mode Exposure Compensation 23")},	/* 0xd047 */
++		{PTP_DPC_OLYMPUS_MyModeExposureCompensation24, N_("My Mode Exposure Compensation 24")},	/* 0xd048 */
++		{PTP_DPC_OLYMPUS_FlashWirelessChannel, N_("Flash Wireless Channel")},	/* 0xd049 */
++		{PTP_DPC_OLYMPUS_CurrentFocalLength, N_("Current Focal Length")},	/* 0xd04a */
++		{PTP_DPC_OLYMPUS_LVCloseUpMode, N_("LV Close Up Mode")},	/* 0xd04b */
++		{PTP_DPC_OLYMPUS_AutoMinimumShutterSpeed, N_("Auto Minimum Shutter Speed")},	/* 0xd04c */
++		{PTP_DPC_OLYMPUS_FlashRemoteRatio, N_("Flash Remote Ratio")},	/* 0xd04d */
++		{PTP_DPC_OLYMPUS_FlashRemoteGroup, N_("Flash Remote Group")},	/* 0xd04e */
++		{PTP_DPC_OLYMPUS_FlashRemoteMode, N_("Flash Remote Mode")},	/* 0xd04f */
++		{PTP_DPC_OLYMPUS_ReleasePrioritySAF, N_("Release Priority S-AF")},	/* 0xd050 */
++		{PTP_DPC_OLYMPUS_AFArea, N_("AF Area")},	/* 0xd051 */
++		{PTP_DPC_OLYMPUS_CameraControlMode, N_("Camera Control Mode")},	/* 0xd052 */
++		{PTP_DPC_OLYMPUS_LensFocalLengthMinimum, N_("Lens Focal Length Minimum")},	/* 0xd053 */
++		{PTP_DPC_OLYMPUS_LensApertureFormat, N_("Lens Aperture Format")},	/* 0xd054 */
++		{PTP_DPC_OLYMPUS_LensFocalLengthMaximum, N_("Lens Focal Length Maximum")},	/* 0xd055 */
++		{PTP_DPC_OLYMPUS_LensInfoFormat, N_("Lens Info Format")},	/* 0xd056 */
++		{PTP_DPC_OLYMPUS_LensMountInformation, N_("Lens Mount Information")},	/* 0xd057 */
++		{PTP_DPC_OLYMPUS_LensSerialNumberPart, N_("Lens Serial Number Part")},	/* 0xd058 */
++		{PTP_DPC_OLYMPUS_ShutterActuationCount, N_("Shutter Actuation Count")},	/* 0xd059 */
++		{PTP_DPC_OLYMPUS_LiveViewCropX, N_("Live View Crop X")},	/* 0xd05a */
++		{PTP_DPC_OLYMPUS_LiveViewCropY, N_("Live View Crop Y")},	/* 0xd05b */
++		{PTP_DPC_OLYMPUS_LensOpticalInfo, N_("Lens Optical Info")},	/* 0xd05c */
++		{PTP_DPC_OLYMPUS_AFPointPositionX, N_("AF Point Position X")},	/* 0xd05d */
++		{PTP_DPC_OLYMPUS_AFPointPositionY, N_("AF Point Position Y")},	/* 0xd05e */
++		{PTP_DPC_OLYMPUS_LensDistortionParameter, N_("Lens Distortion Parameter")},	/* 0xd05f */
++		{PTP_DPC_OLYMPUS_LensCommunicationStatus, N_("Lens Communication Status")},	/* 0xd060 */
++		{PTP_DPC_OLYMPUS_LensISStatus, N_("Lens IS Status")},	/* 0xd061 */
++		{PTP_DPC_OLYMPUS_LensFocusDriveStatus, N_("Lens Focus Drive Status")},	/* 0xd062 */
++		{PTP_DPC_OLYMPUS_LensCategory, N_("Lens Category")},	/* 0xd063 */
++		{PTP_DPC_OLYMPUS_LensVersion, N_("Lens Version")},	/* 0xd064 */
++		{PTP_DPC_OLYMPUS_FocusStackingEnable, N_("Focus Stacking Enable")},	/* 0xd065 */
++		{PTP_DPC_OLYMPUS_LensAttachedStatus, N_("Lens Attached Status")},	/* 0xd066 */
++		{PTP_DPC_OLYMPUS_LensDataValid, N_("Lens Data Valid")},	/* 0xd067 */
++		{PTP_DPC_OLYMPUS_LensErrorStatus, N_("Lens Error Status")},	/* 0xd068 */
++		{PTP_DPC_OLYMPUS_ReleasePriorityCAF, N_("Release Priority C-AF")},	/* 0xd069 */
++		{PTP_DPC_OLYMPUS_LiveViewStreamFormat, N_("Live View Stream Format")},	/* 0xd06a */
++		{PTP_DPC_OLYMPUS_PropertyD06B, N_("Property D06B")},	/* 0xd06b */
++		{PTP_DPC_OLYMPUS_PropertyD06C, N_("Property D06C")},	/* 0xd06c */
++		{PTP_DPC_OLYMPUS_LiveViewModeOM, N_("Live View Mode")},	/* 0xd06d */
++		{PTP_DPC_OLYMPUS_PropertyD06E, N_("Property D06E")},	/* 0xd06e */
++		{PTP_DPC_OLYMPUS_LiveViewQuality, N_("Live View Quality")},	/* 0xd070 */
++		{PTP_DPC_OLYMPUS_LiveViewAFAreaX, N_("Live View AF Area X")},	/* 0xd071 */
++		{PTP_DPC_OLYMPUS_LiveViewAFAreaY, N_("Live View AF Area Y")},	/* 0xd072 */
++		{PTP_DPC_OLYMPUS_LiveViewAFAreaMode, N_("Live View AF Area Mode")},	/* 0xd073 */
++		{PTP_DPC_OLYMPUS_LiveViewFrameWidth, N_("Live View Frame Width")},	/* 0xd074 */
++		{PTP_DPC_OLYMPUS_LiveViewFrameHeight, N_("Live View Frame Height")},	/* 0xd075 */
++		{PTP_DPC_OLYMPUS_LensNumericInfo, N_("Lens Numeric Info")},	/* 0xd077 */
++		{PTP_DPC_OLYMPUS_LiveViewModeSetting, N_("Live View Mode Setting")},	/* 0xd078 */
++		{PTP_DPC_OLYMPUS_LensFocusModeStatus, N_("Lens Focus Mode Status")},	/* 0xd079 */
++		{PTP_DPC_OLYMPUS_HighResShutterSpeed, N_("High Res Shutter Speed")},	/* 0xd07a */
++		{PTP_DPC_OLYMPUS_ShutterSpeedAlt, N_("Shutter Speed Alt")},	/* 0xd07b */
++		{PTP_DPC_OLYMPUS_ElectronicShutterMode, N_("Electronic Shutter Mode")},	/* 0xd07c */
++		{PTP_DPC_OLYMPUS_FlashExposureCompensationAlt, N_("Flash Exposure Compensation Alt")},	/* 0xd07d */
++		{PTP_DPC_OLYMPUS_LensFStopMinimum, N_("Lens F Stop Minimum")},	/* 0xd07f */
++		{PTP_DPC_OLYMPUS_LensFStopMaximum, N_("Lens F Stop Maximum")},	/* 0xd080 */
++		{PTP_DPC_OLYMPUS_LensOISMode, N_("Lens OIS Mode")},	/* 0xd081 */
++		{PTP_DPC_OLYMPUS_LensMFClutchStatus, N_("Lens MF Clutch Status")},	/* 0xd082 */
++		{PTP_DPC_OLYMPUS_LensFocusLimitNear, N_("Lens Focus Limit Near")},	/* 0xd083 */
++		{PTP_DPC_OLYMPUS_LensFocusLimitFar, N_("Lens Focus Limit Far")},	/* 0xd084 */
++		{PTP_DPC_OLYMPUS_LensFocusLimiterMode, N_("Lens Focus Limiter Mode")},	/* 0xd085 */
++		{PTP_DPC_OLYMPUS_LensMaxShutterSpeed, N_("Lens Max Shutter Speed")},	/* 0xd086 */
++		{PTP_DPC_OLYMPUS_LensCurrentShutterSpeed, N_("Lens Current Shutter Speed")},	/* 0xd087 */
++		{PTP_DPC_OLYMPUS_MovieFrameRate, N_("Movie Frame Rate")},	/* 0xd08b */
++		{PTP_DPC_OLYMPUS_MovieQuality, N_("Movie Quality")},	/* 0xd08c */
++		{PTP_DPC_OLYMPUS_MovieAudioMode, N_("Movie Audio Mode")},	/* 0xd08e */
++		{PTP_DPC_OLYMPUS_MovieRecordingStatus, N_("Movie Recording Status")},	/* 0xd08f */
++		{PTP_DPC_OLYMPUS_WirelessFlashMode, N_("Wireless Flash Mode")},	/* 0xd097 */
++		{PTP_DPC_OLYMPUS_GripBatteryStatus, N_("Grip Battery Status")},	/* 0xd09f */
++		{PTP_DPC_OLYMPUS_PictureModeParameter1, N_("Picture Mode Parameter 1")},	/* 0xd0a2 */
++		{PTP_DPC_OLYMPUS_PictureModeParameter2, N_("Picture Mode Parameter 2")},	/* 0xd0a3 */
++		{PTP_DPC_OLYMPUS_PictureModeParameter3, N_("Picture Mode Parameter 3")},	/* 0xd0a4 */
++		{PTP_DPC_OLYMPUS_PictureModeParameter5, N_("Picture Mode Parameter 5")},	/* 0xd0a6 */
++		{PTP_DPC_OLYMPUS_PictureModeParameter6, N_("Picture Mode Parameter 6")},	/* 0xd0a7 */
++		{PTP_DPC_OLYMPUS_PictureModeParameter7, N_("Picture Mode Parameter 7")},	/* 0xd0a8 */
++		{PTP_DPC_OLYMPUS_PictureModeParameter8, N_("Picture Mode Parameter 8")},	/* 0xd0a9 */
++		{PTP_DPC_OLYMPUS_PictureModeParameter9, N_("Picture Mode Parameter 9")},	/* 0xd0aa */
++		{PTP_DPC_OLYMPUS_PropertyD0AB, N_("Property D0AB")},	/* 0xd0ab */
++		{PTP_DPC_OLYMPUS_PictureModeToggle, N_("Picture Mode Toggle")},	/* 0xd0ac */
++		{PTP_DPC_OLYMPUS_HDRMode, N_("HDR")},	/* 0xd0ad */
++		{PTP_DPC_OLYMPUS_PictureModeToggle2, N_("Picture Mode Toggle 2")},	/* 0xd0ae */
++		{PTP_DPC_OLYMPUS_PropertyD0AF, N_("Property D0AF")},	/* 0xd0af */
++		{PTP_DPC_OLYMPUS_PropertyD0B0, N_("Property D0B0")},	/* 0xd0b0 */
++		{PTP_DPC_OLYMPUS_PropertyD0B1, N_("Property D0B1")},	/* 0xd0b1 */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter1, N_("Art Filter Parameter 1")},	/* 0xd0b2 */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter2, N_("Art Filter Parameter 2")},	/* 0xd0b3 */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter3, N_("Art Filter Parameter 3")},	/* 0xd0b4 */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter4, N_("Art Filter Parameter 4")},	/* 0xd0b5 */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter5, N_("Art Filter Parameter 5")},	/* 0xd0b6 */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter6, N_("Art Filter Parameter 6")},	/* 0xd0b7 */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter7, N_("Art Filter Parameter 7")},	/* 0xd0b8 */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter8, N_("Art Filter Parameter 8")},	/* 0xd0b9 */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter9, N_("Art Filter Parameter 9")},	/* 0xd0ba */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter11, N_("Art Filter Parameter 11")},	/* 0xd0bc */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter12, N_("Art Filter Parameter 12")},	/* 0xd0bd */
++		{PTP_DPC_OLYMPUS_ArtFilterParameter13, N_("Art Filter Parameter 13")},	/* 0xd0be */
++		{PTP_DPC_OLYMPUS_PropertyD0BF, N_("Property D0BF")},	/* 0xd0bf */
++		{PTP_DPC_OLYMPUS_PropertyD0C0, N_("Property D0C0")},	/* 0xd0c0 */
++		{PTP_DPC_OLYMPUS_FocusBracketingEnable, N_("Focus Bracketing Enable")},	/* 0xd0c4 */
++		{PTP_DPC_OLYMPUS_MovieFocusMode, N_("Movie Focus Mode")},	/* 0xd0c5 */
++		{PTP_DPC_OLYMPUS_FocusBracketingStatus, N_("Focus Bracketing Status")},	/* 0xd0c6 */
++		{PTP_DPC_OLYMPUS_HighResResolution, N_("High Res Resolution")},	/* 0xd0c7 */
++		{PTP_DPC_OLYMPUS_PropertyD0C8, N_("Property D0C8")},	/* 0xd0c8 */
++		{PTP_DPC_OLYMPUS_HighResWait, N_("High Res Wait Time")},	/* 0xd0c9 */
++		{PTP_DPC_OLYMPUS_KeystoneCompensation, N_("Keystone Compensation")},	/* 0xd0cb */
++		{PTP_DPC_OLYMPUS_KeystoneAdjustment, N_("Keystone Adjustment")},	/* 0xd0cc */
++		{PTP_DPC_OLYMPUS_CustomModeDial, N_("Custom Mode Dial")},	/* 0xd0cd */
++		{PTP_DPC_OLYMPUS_PropertyD0CE, N_("Property D0CE")},	/* 0xd0ce */
++		{PTP_DPC_OLYMPUS_LiveViewZoomRatio, N_("Live View Zoom Ratio")},	/* 0xd0cf */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay1, N_("Live View Overlay 1")},	/* 0xd0d0 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay2, N_("Live View Overlay 2")},	/* 0xd0d1 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay3, N_("Live View Overlay 3")},	/* 0xd0d2 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay4, N_("Live View Overlay 4")},	/* 0xd0d3 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay5, N_("Live View Overlay 5")},	/* 0xd0d4 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay6, N_("Live View Overlay 6")},	/* 0xd0d5 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay7, N_("Live View Overlay 7")},	/* 0xd0d6 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay8, N_("Live View Overlay 8")},	/* 0xd0d7 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay9, N_("Live View Overlay 9")},	/* 0xd0d8 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay10, N_("Live View Overlay 10")},	/* 0xd0d9 */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay11, N_("Live View Overlay 11")},	/* 0xd0da */
++		{PTP_DPC_OLYMPUS_LiveViewOverlay12, N_("Live View Overlay 12")},	/* 0xd0db */
++		{PTP_DPC_OLYMPUS_CaptureTarget, N_("Capture Target")},	/* 0xd0dc */
++		{PTP_DPC_OLYMPUS_CaptureDestinationStatus, N_("Capture Destination Status")},	/* 0xd0dd */
++		{PTP_DPC_OLYMPUS_CaptureBusyStatus, N_("Capture Busy Status")},	/* 0xd0de */
++		{PTP_DPC_OLYMPUS_LensTemperatureStatus, N_("Lens Temperature Status")},	/* 0xd0e1 */
++		{PTP_DPC_OLYMPUS_LensExtendedInfo, N_("Lens Extended Info")},	/* 0xd0e2 */
++		{PTP_DPC_OLYMPUS_RemoteReleaseMode, N_("Remote Release Mode")},	/* 0xd0e3 */
++		{PTP_DPC_OLYMPUS_RemoteReleaseMode2, N_("Remote Release Mode 2")},	/* 0xd0e4 */
++		{PTP_DPC_OLYMPUS_PropertyD0E5, N_("Property D0E5")},	/* 0xd0e5 */
++		{PTP_DPC_OLYMPUS_ImageReview, N_("Image Review")},	/* 0xd0e6 */
++		{PTP_DPC_OLYMPUS_PropertyD0E7, N_("Property D0E7")},	/* 0xd0e7 */
++		{PTP_DPC_OLYMPUS_PropertyD0E8, N_("Property D0E8")},	/* 0xd0e8 */
++		{PTP_DPC_OLYMPUS_PropertyD0E9, N_("Property D0E9")},	/* 0xd0e9 */
++		{PTP_DPC_OLYMPUS_PropertyD0EA, N_("Property D0EA")},	/* 0xd0ea */
++		{PTP_DPC_OLYMPUS_PropertyD0EB, N_("Property D0EB")},	/* 0xd0eb */
++		{PTP_DPC_OLYMPUS_FocusBracketingStep, N_("Focus Bracketing Step")},	/* 0xd0ec */
++		{PTP_DPC_OLYMPUS_FocusBracketingProgress, N_("Focus Bracketing Progress")},	/* 0xd0ed */
++		{PTP_DPC_OLYMPUS_HighlightShadowTone1, N_("Highlight Shadow Tone 1")},	/* 0xd0ef */
++		{PTP_DPC_OLYMPUS_HighlightShadowTone2, N_("Highlight Shadow Tone 2")},	/* 0xd0f0 */
++		{PTP_DPC_OLYMPUS_HighlightShadowTone3, N_("Highlight Shadow Tone 3")},	/* 0xd0f1 */
++		{PTP_DPC_OLYMPUS_HighlightShadowTone4, N_("Highlight Shadow Tone 4")},	/* 0xd0f2 */
++		{PTP_DPC_OLYMPUS_HighlightShadowTone5, N_("Highlight Shadow Tone 5")},	/* 0xd0f3 */
++		{PTP_DPC_OLYMPUS_HighlightShadowTone6, N_("Highlight Shadow Tone 6")},	/* 0xd0f4 */
++		{PTP_DPC_OLYMPUS_PropertyD0F5, N_("Property D0F5")},	/* 0xd0f5 */
++		{PTP_DPC_OLYMPUS_ColorCreatorProfile1, N_("Color Creator Profile 1")},	/* 0xd0f6 */
++		{PTP_DPC_OLYMPUS_ColorCreatorProfile2, N_("Color Creator Profile 2")},	/* 0xd0f7 */
++		{PTP_DPC_OLYMPUS_ColorProfileMode, N_("Color Profile Mode")},	/* 0xd0f8 */
++		{PTP_DPC_OLYMPUS_ColorProfileToggle, N_("Color Profile Toggle")},	/* 0xd0f9 */
++		{PTP_DPC_OLYMPUS_SilentMode, N_("Silent Mode")},	/* 0xd0fa */
++		{PTP_DPC_OLYMPUS_ConnectPCMRecorderCamera, N_("Connect PCM Recorder Camera")},	/* 0xd0fb */
++		{PTP_DPC_OLYMPUS_PropertyD0FC, N_("Property D0FC")},	/* 0xd0fc */
++		{PTP_DPC_OLYMPUS_PropertyD0FD, N_("Property D0FD")},	/* 0xd0fd */
++		{PTP_DPC_OLYMPUS_USBPortPriority, N_("USB Port Priority")},	/* 0xd0fe */
++		{PTP_DPC_OLYMPUS_IntervalTimerLimit, N_("Interval Timer Limit")},	/* 0xd0ff */
++		{PTP_DPC_OLYMPUS_CompositePropertyA, N_("Composite Property A")},	/* 0xd100 */
++		{PTP_DPC_OLYMPUS_CompositePropertyB, N_("Composite Property B")},	/* 0xd101 */
++		{PTP_DPC_OLYMPUS_ResolutionMode, N_("Resolution Mode")},	/* 0xd102 */
++		{PTP_DPC_OLYMPUS_FocusPriority, N_("Focus Priority")},	/* 0xd103 */
++		{PTP_DPC_OLYMPUS_DriveMode, N_("Drive Mode")},	/* 0xd104 */
++		{PTP_DPC_OLYMPUS_DateTimeFormat, N_("Date Time Format")},	/* 0xd105 */
++		{PTP_DPC_OLYMPUS_ExposureBiasStep, N_("Exposure Bias Step")},	/* 0xd106 */
++		{PTP_DPC_OLYMPUS_WBMode, N_("WB Mode")},	/* 0xd107 */
++		{PTP_DPC_OLYMPUS_OneTouchWB, N_("One Touch WB")},	/* 0xd108 */
++		{PTP_DPC_OLYMPUS_ManualWB, N_("Manual WB")},	/* 0xd109 */
++		{PTP_DPC_OLYMPUS_ManualWBRBBias, N_("Manual WBRB Bias")},	/* 0xd10a */
++		{PTP_DPC_OLYMPUS_CustomWB, N_("Custom WB")},	/* 0xd10b */
++		{PTP_DPC_OLYMPUS_CustomWBValue, N_("Custom WB Value")},	/* 0xd10c */
++		{PTP_DPC_OLYMPUS_ExposureTimeEx, N_("Exposure Time Ex")},	/* 0xd10d */
++		{PTP_DPC_OLYMPUS_BulbMode, N_("Bulb Mode")},	/* 0xd10e */
++		{PTP_DPC_OLYMPUS_AntiMirrorMode, N_("Anti Mirror Mode")},	/* 0xd10f */
++		{PTP_DPC_OLYMPUS_AEBracketingFrame, N_("AE Bracketing Frame")},	/* 0xd110 */
++		{PTP_DPC_OLYMPUS_AEBracketingStep, N_("AE Bracketing Step")},	/* 0xd111 */
++		{PTP_DPC_OLYMPUS_WBBracketingRBFrame, N_("WBBracketingRBFrame")},	/* 0xd112 */
++		{PTP_DPC_OLYMPUS_WBBracketingRBRange, N_("WB Bracketing RB Range")},	/* 0xd113 */
++		{PTP_DPC_OLYMPUS_WBBracketingGMFrame, N_("WB Bracketing GM Frame")},	/* 0xd114 */
++		{PTP_DPC_OLYMPUS_WBBracketingGMRange, N_("WB Bracketing GM Range")},	/* 0xd115 */
++		{PTP_DPC_OLYMPUS_ExtendedSetting116, N_("Extended Setting 116")},	/* 0xd116 */
++		{PTP_DPC_OLYMPUS_ExtendedSetting117, N_("Extended Setting 117")},	/* 0xd117 */
++		{PTP_DPC_OLYMPUS_FLBracketingFrame, N_("FL Bracketing Frame")},	/* 0xd118 */
++		{PTP_DPC_OLYMPUS_FLBracketingStep, N_("FL Bracketing Step")},	/* 0xd119 */
++		{PTP_DPC_OLYMPUS_FlashBiasCompensation, N_("Flash Bias Compensation")},	/* 0xd11a */
++		{PTP_DPC_OLYMPUS_StillRecordingMode, N_("Still Recording Mode")},	/* 0xd11b */
++		{PTP_DPC_OLYMPUS_StillRecordingSlot, N_("Still Recording Slot")},	/* 0xd11c */
++		{PTP_DPC_OLYMPUS_MovieRecordingSlot, N_("Movie Recording Slot")},	/* 0xd11d */
++		{PTP_DPC_OLYMPUS_PlaySlot, N_("Play Slot")},	/* 0xd11e */
++		{PTP_DPC_OLYMPUS_LensSinkMode, N_("Lens Sink Mode")},	/* 0xd11f */
++		{PTP_DPC_OLYMPUS_BeepStatus, N_("Beep Status")},	/* 0xd120 */
++		{PTP_DPC_OLYMPUS_ExtendedSetting121, N_("Extended Setting 121")},	/* 0xd121 */
++		{PTP_DPC_OLYMPUS_ColorSpace, N_("Color Space")},	/* 0xd122 */
++		{PTP_DPC_OLYMPUS_ColorMatching, N_("Color Matching")},	/* 0xd123 */
++		{PTP_DPC_OLYMPUS_Saturation, N_("Saturation")},	/* 0xd124 */
++		{PTP_DPC_OLYMPUS_ExtendedSetting125, N_("Extended Setting 125")},	/* 0xd125 */
++		{PTP_DPC_OLYMPUS_NoiseReductionPattern, N_("Noise Reduction Pattern")},	/* 0xd126 */
++		{PTP_DPC_OLYMPUS_NoiseReductionRandom, N_("Noise Reduction Random")},	/* 0xd127 */
++		{PTP_DPC_OLYMPUS_ExtendedSetting128, N_("Extended Setting 128")},	/* 0xd128 */
++		{PTP_DPC_OLYMPUS_ShadingMode, N_("Shading Mode")},	/* 0xd129 */
++		{PTP_DPC_OLYMPUS_ISOBoostMode, N_("ISO Boost Mode")},	/* 0xd12a */
++		{PTP_DPC_OLYMPUS_ExposureIndexBiasStep, N_("Exposure Index Bias Step")},	/* 0xd12b */
++		{PTP_DPC_OLYMPUS_FilterEffect, N_("Filter Effect")},	/* 0xd12c */
++		{PTP_DPC_OLYMPUS_ColorTune, N_("Color Tune")},	/* 0xd12d */
++		{PTP_DPC_OLYMPUS_Language, N_("Language")},	/* 0xd12e */
++		{PTP_DPC_OLYMPUS_LanguageCode, N_("Language Code")},	/* 0xd12f */
++		{PTP_DPC_OLYMPUS_RecviewMode, N_("Recview Mode")},	/* 0xd130 */
++		{PTP_DPC_OLYMPUS_SleepTime, N_("Sleep Time")},	/* 0xd131 */
++		{PTP_DPC_OLYMPUS_ManualWBGMBias, N_("Manual WBGM Bias")},	/* 0xd132 */
++		{PTP_DPC_OLYMPUS_ExtendedSetting133, N_("Extended Setting 133")},	/* 0xd133 */
++		{PTP_DPC_OLYMPUS_ExtendedSetting134, N_("Extended Setting 134")},	/* 0xd134 */
++		{PTP_DPC_OLYMPUS_AELAFLMode, N_("AELAFL Mode")},	/* 0xd135 */
++		{PTP_DPC_OLYMPUS_AELButtonStatus, N_("AEL Button Status")},	/* 0xd136 */
++		{PTP_DPC_OLYMPUS_CompressionSettingEx, N_("Compression Setting Ex")},	/* 0xd137 */
++		{PTP_DPC_OLYMPUS_ExtendedSetting138, N_("Extended Setting 138")},	/* 0xd138 */
++		{PTP_DPC_OLYMPUS_ToneMode, N_("Tone Mode")},	/* 0xd139 */
++		{PTP_DPC_OLYMPUS_GradationMode, N_("Gradation Mode")},	/* 0xd13a */
++		{PTP_DPC_OLYMPUS_DevelopMode, N_("Develop Mode")},	/* 0xd13b */
++		{PTP_DPC_OLYMPUS_ExtendInnerFlashMode, N_("Extend Inner Flash Mode")},	/* 0xd13c */
++		{PTP_DPC_OLYMPUS_OutputDeviceMode, N_("Output Device Mode")},	/* 0xd13d */
++		{PTP_DPC_OLYMPUS_LiveViewMode, N_("Live View Mode")},	/* 0xd13e */
++		{PTP_DPC_OLYMPUS_LCDBacklight, N_("LCD Backlight")},	/* 0xd140 */
++		{PTP_DPC_OLYMPUS_CustomDevelop, N_("Custom Develop")},	/* 0xd141 */
++		{PTP_DPC_OLYMPUS_GradationAutoBias, N_("Gradation Auto Bias")},	/* 0xd142 */
++		{PTP_DPC_OLYMPUS_FlashRCMode, N_("Flash RC Mode")},	/* 0xd143 */
++		{PTP_DPC_OLYMPUS_FlashRCGroupValue, N_("Flash RC Group Value")},	/* 0xd144 */
++		{PTP_DPC_OLYMPUS_FlashRCChannelValue, N_("Flash RC Channel Value")},	/* 0xd145 */
++		{PTP_DPC_OLYMPUS_FlashRCFPMode, N_("Flash RCFP Mode")},	/* 0xd146 */
++		{PTP_DPC_OLYMPUS_FlashRCPhotoChromicMode, N_("Flash RC Photo Chromic Mode")},	/* 0xd147 */
++		{PTP_DPC_OLYMPUS_FlashRCPhotoChromicBias, N_("Flash RC Photo Chromic Bias")},	/* 0xd148 */
++		{PTP_DPC_OLYMPUS_FlashRCPhotoChromicManualBias, N_("Flash RC Photo Chromic Manual Bias")},	/* 0xd149 */
++		{PTP_DPC_OLYMPUS_FlashRCQuantityLightLevel, N_("Flash RC Quantity Light Level")},	/* 0xd14a */
++		{PTP_DPC_OLYMPUS_FocusMeteringValue, N_("Focus Metering Value")},	/* 0xd14b */
++		{PTP_DPC_OLYMPUS_ISOBracketingFrame, N_("ISO Bracketing Frame")},	/* 0xd14c */
++		{PTP_DPC_OLYMPUS_ISOBracketingStep, N_("ISO Bracketing Step")},	/* 0xd14d */
++		{PTP_DPC_OLYMPUS_BulbMFMode, N_("Bulb MF Mode")},	/* 0xd14e */
++		{PTP_DPC_OLYMPUS_BurstFPSValue, N_("Burst FPS Value")},	/* 0xd14f */
++		{PTP_DPC_OLYMPUS_ISOAutoBaseValue, N_("ISO Auto Base Value")},	/* 0xd150 */
++		{PTP_DPC_OLYMPUS_HighResCharge, N_("High Res Charge Time")},	/* 0xd151 */
++		{PTP_DPC_OLYMPUS_BulbLimiterValue, N_("Bulb Limiter Value")},	/* 0xd152 */
++		{PTP_DPC_OLYMPUS_DPIMode, N_("DPI Mode")},	/* 0xd153 */
++		{PTP_DPC_OLYMPUS_DPICustomValue, N_("DPI Custom Value")},	/* 0xd154 */
++		{PTP_DPC_OLYMPUS_ResolutionValueSetting, N_("Resolution Value Setting")},	/* 0xd155 */
++		{PTP_DPC_OLYMPUS_AFTargetSize, N_("AF Target Size")},	/* 0xd157 */
++		{PTP_DPC_OLYMPUS_LightSensorMode, N_("Light Sensor Mode")},	/* 0xd158 */
++		{PTP_DPC_OLYMPUS_AEBracket, N_("AE Bracket")},	/* 0xd159 */
++		{PTP_DPC_OLYMPUS_WBRBBracket, N_("WBRB Bracket")},	/* 0xd15a */
++		{PTP_DPC_OLYMPUS_WBGMBracket, N_("WBGM Bracket")},	/* 0xd15b */
++		{PTP_DPC_OLYMPUS_FlashBracket, N_("Flash Bracket")},	/* 0xd15c */
++		{PTP_DPC_OLYMPUS_ISOBracket, N_("ISO Bracket")},	/* 0xd15d */
++		{PTP_DPC_OLYMPUS_MyModeStatus, N_("My Mode Status")},	/* 0xd15e */
++		{PTP_DPC_OLYMPUS_MyModeBankA, N_("My Mode Bank A")},	/* 0xd15f */
++		{PTP_DPC_OLYMPUS_MyModeBankB, N_("My Mode Bank B")},	/* 0xd160 */
++		{PTP_DPC_OLYMPUS_WhiteBalanceAdjustA, N_("WhiteBalance Adjust A")},	/* 0xd161 */
++		{PTP_DPC_OLYMPUS_WhiteBalanceAdjustB, N_("WhiteBalance Adjust B")},	/* 0xd162 */
++		{PTP_DPC_OLYMPUS_DateTimeUTC, N_("Date Time UTC")},	/* 0xd176 */
++		{PTP_DPC_OLYMPUS_ExtendedSetting17B, N_("Extended Setting 17B")},	/* 0xd17b */
++		{PTP_DPC_OLYMPUS_ExtendedSetting19D, N_("Extended Setting 19D")},	/* 0xd19d */
++		{PTP_DPC_OLYMPUS_ExtendedSetting19E, N_("Extended Setting 19E")},	/* 0xd19e */
++		{PTP_DPC_OLYMPUS_ExtendedSetting19F, N_("Extended Setting 19F")},	/* 0xd19f */
++
++		{PTP_DPC_MTP_DeviceIcon, N_("Device Icon")},		/* 0xd405 */
++		{PTP_DPC_MTP_SessionInitiatorInfo, N_("Session Initiator Info")},	/* 0xd406 */
++		{PTP_DPC_MTP_PerceivedDeviceType, N_("Perceived Device Type")},	/* 0xd407 */
++		{0,NULL}
++	};
++
+ 	struct {
+ 		uint16_t dpc;
+ 		const char *txt;
+@@ -7705,6 +8118,12 @@ ptp_get_property_description(PTPParams* params, uint32_t dpc)
+ 			if (ptp_device_properties_SONY[i].dpc==dpc)
+ 				return (ptp_device_properties_SONY[i].txt);
+ 
++	if (params->deviceinfo.VendorExtensionID==PTP_VENDOR_GP_OLYMPUS
++	    || params->deviceinfo.VendorExtensionID==PTP_VENDOR_GP_OLYMPUS_OMD)
++		for (i=0; ptp_device_properties_Olympus[i].txt!=NULL; i++)
++			if (ptp_device_properties_Olympus[i].dpc==dpc)
++				return (ptp_device_properties_Olympus[i].txt);
++
+ 	if (params->deviceinfo.VendorExtensionID==PTP_VENDOR_PARROT)
+ 		for (i=0; ptp_device_properties_PARROT[i].txt!=NULL; i++)
+ 			if (ptp_device_properties_PARROT[i].dpc==dpc)
+@@ -7820,6 +8239,23 @@ ptp_render_property_value(PTPParams* params, uint16_t dpc,
+ 		{PTP_DPC_FocusMode, PTP_VENDOR_NIKON, 32784, "AF-S"},
+ 		{PTP_DPC_FocusMode, PTP_VENDOR_NIKON, 32785, "AF-C"},
+ 		{PTP_DPC_FocusMode, PTP_VENDOR_NIKON, 32786, "AF-A"},
++		{PTP_DPC_OLYMPUS_FocusMode, PTP_VENDOR_GP_OLYMPUS_OMD, 1, N_("MF")},
++		{PTP_DPC_OLYMPUS_FocusMode, PTP_VENDOR_GP_OLYMPUS_OMD, 2, N_("S-AF")},
++		{PTP_DPC_OLYMPUS_FocusMode, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8001, N_("S-AF+MF")},
++		{PTP_DPC_OLYMPUS_FocusMode, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8002, N_("C-AF")},
++		{PTP_DPC_OLYMPUS_FocusMode, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8004, N_("Preset MF")},
++		{PTP_DPC_OLYMPUS_FocusMode, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8005, N_("C-AF+TR")},
++		{PTP_DPC_OLYMPUS_FocusMode, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8006, N_("Starry Sky AF")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8100, N_("All")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8801, N_("Single")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8802, N_("Small")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8803, N_("Cross")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8804, N_("Mid")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8805, N_("Large")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8901, N_("C1")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8902, N_("C2")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8903, N_("C3")},
++		{PTP_DPC_OLYMPUS_AFAreaSetting, PTP_VENDOR_GP_OLYMPUS_OMD, 0x8904, N_("C4")},
+ 		{PTP_DPC_ExposureMeteringMode, 0, 1, N_("Average")},	/* 500B */
+ 		{PTP_DPC_ExposureMeteringMode, 0, 2, N_("Center Weighted Average")},
+ 		{PTP_DPC_ExposureMeteringMode, 0, 3, N_("Multi-spot")},
+diff --git a/camlibs/ptp2/ptp.h b/camlibs/ptp2/ptp.h
+index 4238897e..e137830e 100644
+--- a/camlibs/ptp2/ptp.h
++++ b/camlibs/ptp2/ptp.h
+@@ -814,42 +814,46 @@ typedef struct _PTPIPHeader PTPIPHeader;
+ 
+ /* Olympus OMD series commands */
+ #define PTP_OC_OLYMPUS_OMD_Capture			0x9481
++#define PTP_OC_OLYMPUS_GetDateTime			0x9482
++#define PTP_OC_OLYMPUS_OMD_MagnifyLiveViewPoint		0x9483	/* Capture UI 0x03; start/set magnify LV point */
+ #define PTP_OC_OLYMPUS_GetLiveViewImage			0x9484	/* liveview */
+ #define PTP_OC_OLYMPUS_OMD_GetImage			0x9485	/* gets an JPEG image (from the capture? SDRAM style?) */
+-#define PTP_OC_OLYMPUS_OMD_ChangedProperties		0x9486
+-#define PTP_OC_OLYMPUS_OMD_MFDrive			0x9487
++#define PTP_OC_OLYMPUS_OMD_ChangedProperties		0x9486	/* heavy poll (~42 propdescs) */
++#define PTP_OC_OLYMPUS_OMD_MFDrive			0x9487	/* also Capture focusAdjustWithDirection:amount: */
++#define PTP_OC_OLYMPUS_OMD_MagnifyLiveViewArea		0x9488	/* Capture UI 0x08; change magnify LV area */
+ #define PTP_OC_OLYMPUS_OMD_SetProperties		0x9489 /* Sends to the device a PTP list of all 16 bit device properties , count 32bit, then 16bit vals */
++#define PTP_OC_OLYMPUS_OMD_PollProperties		0x948A	/* light poll (~15 propdescs); Workspace idle with 9486 */
++#define PTP_OC_OLYMPUS_OMD_SetProperties2		0x948B	/* second property announce list (ptp.c) */
++#define PTP_OC_OLYMPUS_OMD_OpticalZoomDrive		0x948D	/* Capture opticalZoomDriveWithAction:… (UI 0x0E) */
+ /* 948C: Record Video? */
+-/* 9482: Set One Touch WB Gain */
+-/* 9483: Set / Start Magnifying Live View Point */
+-/* 9488: Change Magnifying Live View Area */
+-/* 9493: Start Driving Zoom Lens For Direction / Focal Length  / Stop Driving zoom
++/* 948F–9492: unknown (in Capture UI map) */
++/* 9493: Alternate / legacy zoom drive (still in Capture binary; primary path is 948D)
+  * start direction: 		x1=1,x2=0,x3= STEPS?, x4=1 or 2 (near / far ? )
+  * start to focallength:	x1=1,x2=3,x3= VALUE? ,x4=4 (potentially more)
+  * stop:  			x1=2,x2=0,x3=0,x4=0
+  * unclear:			x1=4,x2=0,x3=0,x4=0
+  */
++/* 9494: unknown */
+ /* 9495: Set / Clear Auto Focus Point? */
+ /* 94a0: Set / Clear Auto Exposure Point? */
+-/* 94b7 or 94bf: Set Focus Adjust Pulse */
+-/* 94A1: Detect One Touch WB Gain */
++/* 94A1: Detect One Touch WB Gain (Capture UI 0x18) */
++#define PTP_OC_OLYMPUS_OMD_DetectOneTouchWB		0x94A1
+ /* 94A2: AdjustLevelGauge? */
+ /* 94A4: Get Direct Item Buffer */
+ /* 94A5: Get Direct Item Info */
+-/* 94B7: Get Recording Folder List? */
+-/* 94BA / 94a1: Pixel Mapping? */
++/* 94B7: Get Recording Folder List? / Focus Adjust Pulse? */
+ /* 94ba: TransferModeStartStop */
+ /* 94bb: Get Un Transfer List */
+ /* 94bc: GetLocalObject info? */
+ /* 94bd: GetLocalObject? */
+ /* 94be: delete local object? */
+-/* 94c0 / 94b9 : Set Comment String */
+-/* 94bf: Set Connect Pc Info? */
+-/* 94c0: Get Connect Pc Info? */
+-/* 94c1: Clear Connect Pc Info? */
+-/* 94c4: Get Camera Af Target Frames? */
+-/* 94c3: Start Station Mode */
+-/* 94c3: End Station Mode */
++#define PTP_OC_OLYMPUS_OMD_SetConnectPcInfo		0x94BF	/* Capture setConnectPCInfo (UI 0x1A) */
++#define PTP_OC_OLYMPUS_OMD_GetConnectPcInfo		0x94C0	/* Capture getConnectPCInfoAtIndex (UI 0x1B) */
++#define PTP_OC_OLYMPUS_OMD_ClearConnectPcInfo		0x94C1	/* Capture clearConnectPCInfoAtIndex (UI 0x1C) */
++#define PTP_OC_OLYMPUS_OMD_GetOTWBKelvin			0x94C2	/* Capture getOTWBKelvin (UI 0x1D) */
++/* 94c4: Get Camera Af Target Frames? (Capture UI 0x1E) */
++#define PTP_OC_OLYMPUS_OMD_GetAFTargetFrames		0x94C4
++/* 94c3: Start/End Station Mode */
+ /* 911c: Get Firmware Update Mode? */
+ /* 9121: Firmware Check? */
+ /* 9122: Get Firmware Status? */
+@@ -871,7 +875,6 @@ typedef struct _PTPIPHeader PTPIPHeader;
+ #define PTP_OC_OLYMPUS_GetDeviceInfo			0x9301
+ #define PTP_OC_OLYMPUS_OpenSession			0x9302
+ #define PTP_OC_OLYMPUS_SetDateTime			0x9402
+-#define PTP_OC_OLYMPUS_GetDateTime			0x9482
+ #define PTP_OC_OLYMPUS_SetCameraID			0x9501
+ #define PTP_OC_OLYMPUS_GetCameraID			0x9581
+ 
+@@ -2609,6 +2612,7 @@ typedef struct _PTPCanonEOSDeviceInfo {
+ #define PTP_DPC_NIKON_MovieAfSpeedWhenToApply		0xD17D
+ #define PTP_DPC_NIKON_MovieAfTrackingSensitivity	0xD17E
+ #define PTP_DPC_NIKON_CSMMenu				0xD180
++#define PTP_DPC_NIKON_FlushBurstPrioritize		0xD180 /* z */
+ #define PTP_DPC_NIKON_WarningDisplay			0xD181
+ #define PTP_DPC_NIKON_BatteryCellKind			0xD182
+ #define PTP_DPC_NIKON_ISOAutoHiLimit			0xD183
+@@ -2688,6 +2692,7 @@ typedef struct _PTPCanonEOSDeviceInfo {
+ #define PTP_DPC_NIKON_MirrorUpStatus			0xD1F6
+ #define PTP_DPC_NIKON_MirrorUpReleaseShootingCount	0xD1F7
+ #define PTP_DPC_NIKON_MovieAfAreaMode			0xD1F8
++#define PTP_DPC_NIKON_MovieFocusMeteringMode		0xD1F8 /* z */
+ #define PTP_DPC_NIKON_MovieVibrationReduction		0xD1F9
+ #define PTP_DPC_NIKON_MovieFocusMode			0xD1FA
+ #define PTP_DPC_NIKON_RecordTimeCodes			0xD1FB
+@@ -2696,7 +2701,7 @@ typedef struct _PTPCanonEOSDeviceInfo {
+ #define PTP_DPC_NIKON_DropFrame				0xD1FE
+ #define PTP_DPC_NIKON_ActivePicCtrlItem			0xD200
+ #define PTP_DPC_NIKON_ChangePicCtrlItem			0xD201
+-#define PTP_DPC_NIKON_ElectronicFrontCurtainShutter	0xD20D
++#define PTP_DPC_NIKON_ElectronicFrontCurtainShutter	0xD20D /* shuttertype on z */
+ #define PTP_DPC_NIKON_MovieResetShootingMenu		0xD20E
+ #define PTP_DPC_NIKON_MovieCaptureAreaCrop		0xD20F
+ #define PTP_DPC_NIKON_MovieAutoDxCrop			0xD210
+@@ -2833,7 +2838,10 @@ typedef struct _PTPCanonEOSDeviceInfo {
+ #define PTP_DPC_NIKON_MovieHighFrequencyFlickerReduction	0x1D032
+ #define PTP_DPC_NIKON_HiResZoom				0x1D033
+ #define PTP_DPC_NIKON_ViewModeShowEffectsOfSettings	0x1D036
++#define PTP_DPC_NIKON_LinkVRToFocusPoint		0x1D03C
+ #define PTP_DPC_NIKON_FlickerReductionShutterSpeed	0x1D03D
++#define PTP_DPC_NIKON_MFSubjectDetectionArea		0x1D03E
++#define PTP_DPC_NIKON_MovieMFSubjectDetectionArea	0x1D03F
+ #define PTP_DPC_NIKON_EnableDXImageSize			0x1D041
+ #define PTP_DPC_NIKON_ImageSizeDX			0x1D042
+ #define PTP_DPC_NIKON_PixelShiftShootingMode		0x1D045
+@@ -2844,7 +2852,12 @@ typedef struct _PTPCanonEOSDeviceInfo {
+ #define PTP_DPC_NIKON_FmmManualSetting2			0x1D04A
+ #define PTP_DPC_NIKON_F0ManualSetting2			0x1D04B
+ #define PTP_DPC_NIKON_ManualSettingLensName		0x1D04C
++#define PTP_DPC_NIKON_PixelShiftShootingNumberOfShots	0x1D04E
++#define PTP_DPC_NIKON_PixelShiftShootingDelay		0x1D04F
+ #define PTP_DPC_NIKON_PixelShiftShootingInterval	0x1D050
++#define PTP_DPC_NIKON_PixelShiftShootingStatus		0x1D051
++#define PTP_DPC_NIKON_ProductReviewMode			0x1D05F
++#define PTP_DPC_NIKON_VideoSelfTimer			0x1D060
+ 
+ /* Fuji specific */
+ 
+@@ -3145,9 +3158,10 @@ typedef struct _PTPCanonEOSDeviceInfo {
+ #define PTP_DPC_OLYMPUS_FLBracketingFrame		0xD118
+ #define PTP_DPC_OLYMPUS_FLBracketingStep		0xD119
+ #define PTP_DPC_OLYMPUS_FlashBiasCompensation		0xD11A
+-#define PTP_DPC_OLYMPUS_ManualFocusMode			0xD11B
+-#define PTP_DPC_OLYMPUS_RawSaveMode			0xD11D
+-#define PTP_DPC_OLYMPUS_AUXLightMode			0xD11E
++#define PTP_DPC_OLYMPUS_StillRecordingMode		0xD11B	/* Capture Card Slot Settings */
++#define PTP_DPC_OLYMPUS_StillRecordingSlot		0xD11C	/* was ExtendedSetting11C / RawSaveMode */
++#define PTP_DPC_OLYMPUS_MovieRecordingSlot		0xD11D
++#define PTP_DPC_OLYMPUS_PlaySlot				0xD11E
+ #define PTP_DPC_OLYMPUS_LensSinkMode			0xD11F
+ #define PTP_DPC_OLYMPUS_BeepStatus			0xD120
+ #define PTP_DPC_OLYMPUS_ColorSpace			0xD122
+@@ -3191,7 +3205,7 @@ typedef struct _PTPCanonEOSDeviceInfo {
+ #define PTP_DPC_OLYMPUS_BulbMFMode			0xD14E
+ #define PTP_DPC_OLYMPUS_BurstFPSValue			0xD14F
+ #define PTP_DPC_OLYMPUS_ISOAutoBaseValue		0xD150
+-#define PTP_DPC_OLYMPUS_ISOAutoMaxValue			0xD151
++#define PTP_DPC_OLYMPUS_HighResCharge			0xD151
+ #define PTP_DPC_OLYMPUS_BulbLimiterValue		0xD152
+ #define PTP_DPC_OLYMPUS_DPIMode				0xD153
+ #define PTP_DPC_OLYMPUS_DPICustomValue			0xD154
+@@ -3206,7 +3220,289 @@ typedef struct _PTPCanonEOSDeviceInfo {
+ #define PTP_DPC_OLYMPUS_MyModeStatus			0xD15E
+ #define PTP_DPC_OLYMPUS_DateTimeUTC			0xD176 /* check */
+ 
+-/* Sony A900 */
++/* Olympus/OM System OMD properties (OM-1 generation and newer bodies) */
++#define PTP_DPC_OLYMPUS_PropertyD001			0xD001
++#define PTP_DPC_OLYMPUS_FlashMode			0xD005
++#define PTP_DPC_OLYMPUS_ExposureProgramMode		0xD006
++#define PTP_DPC_OLYMPUS_AFAreaSetting			0xD00C
++#define PTP_DPC_OLYMPUS_FlashExposureCompensation			0xD00F
++#define PTP_DPC_OLYMPUS_WhiteBalancePreset			0xD010
++#define PTP_DPC_OLYMPUS_NoiseFilter			0xD011
++#define PTP_DPC_OLYMPUS_AFReleasePriority			0xD013
++#define PTP_DPC_OLYMPUS_ShutterReleasePriority			0xD014
++#define PTP_DPC_OLYMPUS_ISOAutoMode			0xD018
++#define PTP_DPC_OLYMPUS_ImageStabilizer			0xD01D
++#define PTP_DPC_OLYMPUS_WBKeepWarmColor			0xD01F
++#define PTP_DPC_OLYMPUS_BracketSettingB			0xD020
++#define PTP_DPC_OLYMPUS_BracketSettingC			0xD021
++#define PTP_DPC_OLYMPUS_BracketSettingD			0xD022
++#define PTP_DPC_OLYMPUS_BracketSettingE			0xD023
++#define PTP_DPC_OLYMPUS_BracketSettingF			0xD024
++#define PTP_DPC_OLYMPUS_BracketExposureCompensationA			0xD025
++#define PTP_DPC_OLYMPUS_BracketExposureCompensationB			0xD026
++#define PTP_DPC_OLYMPUS_BracketExposureCompensationC			0xD027
++#define PTP_DPC_OLYMPUS_BracketExposureCompensationD			0xD028
++#define PTP_DPC_OLYMPUS_BracketShutterSpeed1			0xD029
++#define PTP_DPC_OLYMPUS_BracketShutterSpeed2			0xD02A
++#define PTP_DPC_OLYMPUS_BracketShutterSpeed3			0xD02B
++#define PTP_DPC_OLYMPUS_BracketShutterSpeed4			0xD02C
++#define PTP_DPC_OLYMPUS_BracketAperture1			0xD02D
++#define PTP_DPC_OLYMPUS_BracketAperture2			0xD02E
++#define PTP_DPC_OLYMPUS_BracketAperture3			0xD02F
++#define PTP_DPC_OLYMPUS_BracketAperture4			0xD030
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation01			0xD031
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation02			0xD032
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation03			0xD033
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation04			0xD034
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation05			0xD035
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation06			0xD036
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation07			0xD037
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation08			0xD038
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation09			0xD039
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation10			0xD03A
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation11			0xD03B
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation12			0xD03C
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation13			0xD03D
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation14			0xD03E
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation15			0xD03F
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation16			0xD040
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation17			0xD041
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation18			0xD042
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation19			0xD043
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation20			0xD044
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation21			0xD045
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation22			0xD046
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation23			0xD047
++#define PTP_DPC_OLYMPUS_MyModeExposureCompensation24			0xD048
++#define PTP_DPC_OLYMPUS_FlashWirelessChannel			0xD049
++#define PTP_DPC_OLYMPUS_CurrentFocalLength			0xD04A
++#define PTP_DPC_OLYMPUS_LVCloseUpMode			0xD04B
++#define PTP_DPC_OLYMPUS_AutoMinimumShutterSpeed			0xD04C
++#define PTP_DPC_OLYMPUS_FlashRemoteRatio			0xD04D
++#define PTP_DPC_OLYMPUS_FlashRemoteGroup			0xD04E
++#define PTP_DPC_OLYMPUS_FlashRemoteMode			0xD04F
++#define PTP_DPC_OLYMPUS_ReleasePrioritySAF			0xD050
++#define PTP_DPC_OLYMPUS_CameraControlMode			0xD052
++#define PTP_DPC_OLYMPUS_LensFocalLengthMinimum			0xD053
++#define PTP_DPC_OLYMPUS_LensApertureFormat			0xD054
++#define PTP_DPC_OLYMPUS_LensFocalLengthMaximum			0xD055
++#define PTP_DPC_OLYMPUS_LensInfoFormat			0xD056
++#define PTP_DPC_OLYMPUS_LensMountInformation			0xD057
++#define PTP_DPC_OLYMPUS_LensSerialNumberPart			0xD058
++#define PTP_DPC_OLYMPUS_ShutterActuationCount			0xD059
++#define PTP_DPC_OLYMPUS_LiveViewCropX			0xD05A
++#define PTP_DPC_OLYMPUS_LiveViewCropY			0xD05B
++#define PTP_DPC_OLYMPUS_LensOpticalInfo			0xD05C
++#define PTP_DPC_OLYMPUS_AFPointPositionX			0xD05D
++#define PTP_DPC_OLYMPUS_AFPointPositionY			0xD05E
++#define PTP_DPC_OLYMPUS_LensDistortionParameter			0xD05F
++#define PTP_DPC_OLYMPUS_LensCommunicationStatus			0xD060
++#define PTP_DPC_OLYMPUS_LensISStatus			0xD061
++#define PTP_DPC_OLYMPUS_LensFocusDriveStatus			0xD062
++#define PTP_DPC_OLYMPUS_LensCategory			0xD063
++#define PTP_DPC_OLYMPUS_LensVersion			0xD064
++#define PTP_DPC_OLYMPUS_FocusStackingEnable			0xD065
++#define PTP_DPC_OLYMPUS_LensAttachedStatus			0xD066
++#define PTP_DPC_OLYMPUS_LensDataValid			0xD067
++#define PTP_DPC_OLYMPUS_LensErrorStatus			0xD068
++#define PTP_DPC_OLYMPUS_ReleasePriorityCAF			0xD069
++#define PTP_DPC_OLYMPUS_LiveViewStreamFormat			0xD06A
++#define PTP_DPC_OLYMPUS_PropertyD06B			0xD06B
++#define PTP_DPC_OLYMPUS_PropertyD06C			0xD06C
++#define PTP_DPC_OLYMPUS_PropertyD06E			0xD06E
++#define PTP_DPC_OLYMPUS_LiveViewQuality			0xD070
++#define PTP_DPC_OLYMPUS_LiveViewAFAreaX			0xD071
++#define PTP_DPC_OLYMPUS_LiveViewAFAreaY			0xD072
++#define PTP_DPC_OLYMPUS_LiveViewAFAreaMode			0xD073
++#define PTP_DPC_OLYMPUS_LiveViewFrameWidth			0xD074
++#define PTP_DPC_OLYMPUS_LiveViewFrameHeight			0xD075
++#define PTP_DPC_OLYMPUS_LensNumericInfo			0xD077
++#define PTP_DPC_OLYMPUS_LiveViewModeSetting			0xD078
++#define PTP_DPC_OLYMPUS_LensFocusModeStatus			0xD079
++#define PTP_DPC_OLYMPUS_HighResShutterSpeed			0xD07A
++#define PTP_DPC_OLYMPUS_ShutterSpeedAlt			0xD07B
++#define PTP_DPC_OLYMPUS_ElectronicShutterMode			0xD07C
++#define PTP_DPC_OLYMPUS_FlashExposureCompensationAlt			0xD07D
++#define PTP_DPC_OLYMPUS_LensFStopMinimum			0xD07F
++#define PTP_DPC_OLYMPUS_LensFStopMaximum			0xD080
++#define PTP_DPC_OLYMPUS_LensOISMode			0xD081
++#define PTP_DPC_OLYMPUS_LensMFClutchStatus			0xD082
++#define PTP_DPC_OLYMPUS_LensFocusLimitNear			0xD083
++#define PTP_DPC_OLYMPUS_LensFocusLimitFar			0xD084
++#define PTP_DPC_OLYMPUS_LensFocusLimiterMode			0xD085
++#define PTP_DPC_OLYMPUS_LensMaxShutterSpeed			0xD086
++#define PTP_DPC_OLYMPUS_LensCurrentShutterSpeed			0xD087
++#define PTP_DPC_OLYMPUS_MovieFrameRate			0xD08B
++#define PTP_DPC_OLYMPUS_MovieQuality			0xD08C
++#define PTP_DPC_OLYMPUS_MovieAudioMode			0xD08E
++#define PTP_DPC_OLYMPUS_MovieRecordingStatus			0xD08F
++#define PTP_DPC_OLYMPUS_WirelessFlashMode			0xD097
++#define PTP_DPC_OLYMPUS_GripBatteryStatus			0xD09F
++#define PTP_DPC_OLYMPUS_PictureModeParameter1			0xD0A2
++#define PTP_DPC_OLYMPUS_PictureModeParameter2			0xD0A3
++#define PTP_DPC_OLYMPUS_PictureModeParameter3			0xD0A4
++#define PTP_DPC_OLYMPUS_PictureModeParameter5			0xD0A6
++#define PTP_DPC_OLYMPUS_PictureModeParameter6			0xD0A7
++#define PTP_DPC_OLYMPUS_PictureModeParameter7			0xD0A8
++#define PTP_DPC_OLYMPUS_PictureModeParameter8			0xD0A9
++#define PTP_DPC_OLYMPUS_PictureModeParameter9			0xD0AA
++#define PTP_DPC_OLYMPUS_PropertyD0AB			0xD0AB
++#define PTP_DPC_OLYMPUS_PictureModeToggle			0xD0AC
++#define PTP_DPC_OLYMPUS_HDRMode			0xD0AD
++#define PTP_DPC_OLYMPUS_PictureModeToggle2			0xD0AE
++#define PTP_DPC_OLYMPUS_PropertyD0AF			0xD0AF
++#define PTP_DPC_OLYMPUS_PropertyD0B0			0xD0B0
++#define PTP_DPC_OLYMPUS_PropertyD0B1			0xD0B1
++#define PTP_DPC_OLYMPUS_ArtFilterParameter1			0xD0B2
++#define PTP_DPC_OLYMPUS_ArtFilterParameter2			0xD0B3
++#define PTP_DPC_OLYMPUS_ArtFilterParameter3			0xD0B4
++#define PTP_DPC_OLYMPUS_ArtFilterParameter4			0xD0B5
++#define PTP_DPC_OLYMPUS_ArtFilterParameter5			0xD0B6
++#define PTP_DPC_OLYMPUS_ArtFilterParameter6			0xD0B7
++#define PTP_DPC_OLYMPUS_ArtFilterParameter7			0xD0B8
++#define PTP_DPC_OLYMPUS_ArtFilterParameter8			0xD0B9
++#define PTP_DPC_OLYMPUS_ArtFilterParameter9			0xD0BA
++#define PTP_DPC_OLYMPUS_ArtFilterParameter11			0xD0BC
++#define PTP_DPC_OLYMPUS_ArtFilterParameter12			0xD0BD
++#define PTP_DPC_OLYMPUS_ArtFilterParameter13			0xD0BE
++#define PTP_DPC_OLYMPUS_PropertyD0BF			0xD0BF
++#define PTP_DPC_OLYMPUS_PropertyD0C0			0xD0C0
++#define PTP_DPC_OLYMPUS_FocusBracketingEnable			0xD0C4
++#define PTP_DPC_OLYMPUS_MovieFocusMode			0xD0C5
++#define PTP_DPC_OLYMPUS_FocusBracketingStatus			0xD0C6
++#define PTP_DPC_OLYMPUS_HighResResolution			0xD0C7
++#define PTP_DPC_OLYMPUS_PropertyD0C8			0xD0C8
++#define PTP_DPC_OLYMPUS_HighResWait			0xD0C9
++#define PTP_DPC_OLYMPUS_KeystoneCompensation			0xD0CB
++#define PTP_DPC_OLYMPUS_KeystoneAdjustment			0xD0CC
++#define PTP_DPC_OLYMPUS_CustomModeDial			0xD0CD
++#define PTP_DPC_OLYMPUS_PropertyD0CE			0xD0CE
++#define PTP_DPC_OLYMPUS_LiveViewZoomRatio			0xD0CF
++#define PTP_DPC_OLYMPUS_LiveViewOverlay1			0xD0D0
++#define PTP_DPC_OLYMPUS_LiveViewOverlay2			0xD0D1
++#define PTP_DPC_OLYMPUS_LiveViewOverlay3			0xD0D2
++#define PTP_DPC_OLYMPUS_LiveViewOverlay4			0xD0D3
++#define PTP_DPC_OLYMPUS_LiveViewOverlay5			0xD0D4
++#define PTP_DPC_OLYMPUS_LiveViewOverlay6			0xD0D5
++#define PTP_DPC_OLYMPUS_LiveViewOverlay7			0xD0D6
++#define PTP_DPC_OLYMPUS_LiveViewOverlay8			0xD0D7
++#define PTP_DPC_OLYMPUS_LiveViewOverlay9			0xD0D8
++#define PTP_DPC_OLYMPUS_LiveViewOverlay10			0xD0D9
++#define PTP_DPC_OLYMPUS_LiveViewOverlay11			0xD0DA
++#define PTP_DPC_OLYMPUS_LiveViewOverlay12			0xD0DB
++#define PTP_DPC_OLYMPUS_CaptureDestinationStatus			0xD0DD
++#define PTP_DPC_OLYMPUS_CaptureBusyStatus			0xD0DE
++#define PTP_DPC_OLYMPUS_LensTemperatureStatus			0xD0E1
++#define PTP_DPC_OLYMPUS_LensExtendedInfo			0xD0E2
++#define PTP_DPC_OLYMPUS_RemoteReleaseMode			0xD0E3
++#define PTP_DPC_OLYMPUS_RemoteReleaseMode2			0xD0E4
++#define PTP_DPC_OLYMPUS_PropertyD0E5			0xD0E5
++#define PTP_DPC_OLYMPUS_ImageReview			0xD0E6
++#define PTP_DPC_OLYMPUS_PropertyD0E7			0xD0E7
++#define PTP_DPC_OLYMPUS_PropertyD0E8			0xD0E8
++#define PTP_DPC_OLYMPUS_PropertyD0E9			0xD0E9
++#define PTP_DPC_OLYMPUS_PropertyD0EA			0xD0EA
++#define PTP_DPC_OLYMPUS_PropertyD0EB			0xD0EB
++#define PTP_DPC_OLYMPUS_FocusBracketingStep			0xD0EC
++#define PTP_DPC_OLYMPUS_FocusBracketingProgress			0xD0ED
++#define PTP_DPC_OLYMPUS_HighlightShadowTone1			0xD0EF
++#define PTP_DPC_OLYMPUS_HighlightShadowTone2			0xD0F0
++#define PTP_DPC_OLYMPUS_HighlightShadowTone3			0xD0F1
++#define PTP_DPC_OLYMPUS_HighlightShadowTone4			0xD0F2
++#define PTP_DPC_OLYMPUS_HighlightShadowTone5			0xD0F3
++#define PTP_DPC_OLYMPUS_HighlightShadowTone6			0xD0F4
++#define PTP_DPC_OLYMPUS_PropertyD0F5			0xD0F5
++#define PTP_DPC_OLYMPUS_ColorCreatorProfile1			0xD0F6
++#define PTP_DPC_OLYMPUS_ColorCreatorProfile2			0xD0F7
++#define PTP_DPC_OLYMPUS_ColorProfileMode			0xD0F8
++#define PTP_DPC_OLYMPUS_ColorProfileToggle			0xD0F9
++#define PTP_DPC_OLYMPUS_SilentMode			0xD0FA
++#define PTP_DPC_OLYMPUS_ConnectPCMRecorderCamera		0xD0FB
++#define PTP_DPC_OLYMPUS_PropertyD0FC			0xD0FC
++#define PTP_DPC_OLYMPUS_PropertyD0FD			0xD0FD
++#define PTP_DPC_OLYMPUS_USBPortPriority			0xD0FE
++#define PTP_DPC_OLYMPUS_IntervalTimerLimit			0xD0FF
++#define PTP_DPC_OLYMPUS_CompositePropertyA			0xD100
++#define PTP_DPC_OLYMPUS_CompositePropertyB			0xD101
++#define PTP_DPC_OLYMPUS_ExtendedSetting116			0xD116
++#define PTP_DPC_OLYMPUS_ExtendedSetting117			0xD117
++#define PTP_DPC_OLYMPUS_ExtendedSetting121			0xD121
++#define PTP_DPC_OLYMPUS_ExtendedSetting125			0xD125
++#define PTP_DPC_OLYMPUS_ExtendedSetting128			0xD128
++#define PTP_DPC_OLYMPUS_ExtendedSetting133			0xD133
++#define PTP_DPC_OLYMPUS_ExtendedSetting134			0xD134
++#define PTP_DPC_OLYMPUS_ExtendedSetting138			0xD138
++#define PTP_DPC_OLYMPUS_MyModeBankA			0xD15F
++#define PTP_DPC_OLYMPUS_MyModeBankB			0xD160
++#define PTP_DPC_OLYMPUS_PropertyD163			0xD163
++#define PTP_DPC_OLYMPUS_PropertyD164			0xD164
++#define PTP_DPC_OLYMPUS_PropertyD165			0xD165
++#define PTP_DPC_OLYMPUS_PropertyD166			0xD166
++#define PTP_DPC_OLYMPUS_PropertyD167			0xD167
++#define PTP_DPC_OLYMPUS_PropertyD168			0xD168
++#define PTP_DPC_OLYMPUS_PropertyD169			0xD169
++#define PTP_DPC_OLYMPUS_PropertyD16A			0xD16A
++#define PTP_DPC_OLYMPUS_PropertyD16B			0xD16B
++#define PTP_DPC_OLYMPUS_PropertyD16C			0xD16C
++#define PTP_DPC_OLYMPUS_PropertyD16D			0xD16D
++#define PTP_DPC_OLYMPUS_PropertyD16E			0xD16E
++#define PTP_DPC_OLYMPUS_PropertyD16F			0xD16F
++#define PTP_DPC_OLYMPUS_PropertyD170			0xD170
++#define PTP_DPC_OLYMPUS_PropertyD171			0xD171
++#define PTP_DPC_OLYMPUS_PropertyD172			0xD172
++#define PTP_DPC_OLYMPUS_PropertyD173			0xD173
++#define PTP_DPC_OLYMPUS_CustomMode			0xD174
++#define PTP_DPC_OLYMPUS_PropertyD175			0xD175
++#define PTP_DPC_OLYMPUS_PropertyD177			0xD177
++#define PTP_DPC_OLYMPUS_PropertyD178			0xD178
++#define PTP_DPC_OLYMPUS_PropertyD179			0xD179
++#define PTP_DPC_OLYMPUS_ExtendedSetting17B			0xD17B
++#define PTP_DPC_OLYMPUS_ExtendedSetting19D			0xD19D
++#define PTP_DPC_OLYMPUS_ExtendedSetting19E			0xD19E
++#define PTP_DPC_OLYMPUS_ExtendedSetting19F			0xD19F
++#define PTP_DPC_OLYMPUS_PropertyD1A0			0xD1A0
++#define PTP_DPC_OLYMPUS_SequentialMaxFPS			0xD1A1
++#define PTP_DPC_OLYMPUS_SequentialFrameCountLimiter	0xD1A2
++#define PTP_DPC_OLYMPUS_SequentialFrameCountLimit	0xD1A3
++#define PTP_DPC_OLYMPUS_SilentSequentialMaxFPS		0xD1A4
++#define PTP_DPC_OLYMPUS_SilentSequentialFrameCountLimiter	0xD1A5
++#define PTP_DPC_OLYMPUS_SilentSequentialFrameCountLimit	0xD1A6
++#define PTP_DPC_OLYMPUS_SH1MaxFPS			0xD1A7
++#define PTP_DPC_OLYMPUS_SH1FrameCountLimiter		0xD1A8
++#define PTP_DPC_OLYMPUS_SH1FrameCountLimit		0xD1A9
++#define PTP_DPC_OLYMPUS_SH2MaxFPS			0xD1AA
++#define PTP_DPC_OLYMPUS_SH2FrameCountLimiter		0xD1AB
++#define PTP_DPC_OLYMPUS_SH2FrameCountLimit		0xD1AC
++#define PTP_DPC_OLYMPUS_ProCaptureMaxFPS			0xD1AD
++#define PTP_DPC_OLYMPUS_ProCaptureFrameCountLimiter	0xD1AE
++#define PTP_DPC_OLYMPUS_ProCaptureFrameCountLimit	0xD1AF
++#define PTP_DPC_OLYMPUS_ProCapturePreShutterFrames	0xD1B0
++#define PTP_DPC_OLYMPUS_ProCaptureSH1MaxFPS		0xD1B1
++#define PTP_DPC_OLYMPUS_ProCaptureSH1FrameCountLimiter	0xD1B2
++#define PTP_DPC_OLYMPUS_ProCaptureSH1FrameCountLimit	0xD1B3
++#define PTP_DPC_OLYMPUS_ProCaptureSH1PreShutterFrames	0xD1B4
++#define PTP_DPC_OLYMPUS_ProCaptureSH2MaxFPS		0xD1B5
++#define PTP_DPC_OLYMPUS_ProCaptureSH2FrameCountLimiter	0xD1B6
++#define PTP_DPC_OLYMPUS_ProCaptureSH2FrameCountLimit	0xD1B7
++#define PTP_DPC_OLYMPUS_ProCaptureSH2PreShutterFrames	0xD1B8
++#define PTP_DPC_OLYMPUS_HighResShot			0xD1B9
++#define PTP_DPC_OLYMPUS_PropertyD1BA			0xD1BA
++#define PTP_DPC_OLYMPUS_PropertyD1BB			0xD1BB
++#define PTP_DPC_OLYMPUS_PropertyD1BC			0xD1BC
++#define PTP_DPC_OLYMPUS_PropertyD1BD			0xD1BD
++#define PTP_DPC_OLYMPUS_PropertyD1BE			0xD1BE
++#define PTP_DPC_OLYMPUS_PropertyD1BF			0xD1BF
++#define PTP_DPC_OLYMPUS_ISO2				0xD1C0	/* OM-1 and later; replaces 0xD007 */
++#define PTP_DPC_OLYMPUS_PropertyD1C1			0xD1C1
++#define PTP_DPC_OLYMPUS_PropertyD1C2			0xD1C2
++#define PTP_DPC_OLYMPUS_PropertyD1C3			0xD1C3
++#define PTP_DPC_OLYMPUS_PropertyD1C4			0xD1C4
++#define PTP_DPC_OLYMPUS_PropertyD1C5			0xD1C5
++#define PTP_DPC_OLYMPUS_PropertyD1C6			0xD1C6
++#define PTP_DPC_OLYMPUS_PropertyD1C7			0xD1C7
++#define PTP_DPC_OLYMPUS_PropertyD1C8			0xD1C8
++#define PTP_DPC_OLYMPUS_SubjectDetectionMode		0xD1D0
++#define PTP_DPC_OLYMPUS_HighResShotRawBit		0xD1D1
+ #define PTP_DPC_SONY_IrisModeSetting			0xD001
+ #define PTP_DPC_SONY_FocalDistanceInMeter		0xD004
+ #define PTP_DPC_SONY_FocalDistanceInFeet		0xD005
+@@ -4025,6 +4321,9 @@ struct _PTPParams {
+ 	struct timeval		starttime;
+ 	int			sony_mode_ver;
+ 
++	/* PTP: Olympus specifics */
++	uint16_t		olympus_camera_control_mode;
++
+ 	/* PTP: Wifi profiles */
+ 	uint8_t 	wifi_profiles_version;
+ 	uint8_t		wifi_profiles_number;
+@@ -5135,6 +5434,7 @@ uint16_t ptp_olympus_omd_capture (PTPParams* params);
+ uint16_t ptp_olympus_omd_bulbstart (PTPParams* params);
+ uint16_t ptp_olympus_omd_bulbend (PTPParams* params);
+ uint16_t ptp_olympus_init_pc_mode (PTPParams* params);
++uint16_t ptp_olympus_exit_pc_mode (PTPParams* params);
+ uint16_t ptp_olympus_sdram_image (PTPParams* params, unsigned char **data, unsigned int *size);
+ 
+ 
+diff --git a/camlibs/ptp2/ptpip.c b/camlibs/ptp2/ptpip.c
+index dfaa6ae9..9d66876d 100644
+--- a/camlibs/ptp2/ptpip.c
++++ b/camlibs/ptp2/ptpip.c
+@@ -492,7 +492,7 @@ ptp_ptpip_init_command_ack (PTPParams* params)
+ 	PTPIPHeader	hdr;
+ 	unsigned char	*data = NULL;
+ 	uint16_t 	ret;
+-	int		i;
++	unsigned int	i;
+ 	unsigned short	*name;
+ 
+ 	ret = ptp_ptpip_generic_read (params, params->cmdfd, &hdr, &data);
+@@ -508,9 +508,9 @@ ptp_ptpip_init_command_ack (PTPParams* params)
+ 	params->eventpipeid = dtoh32a(&data[ptpip_cmdack_idx]);
+ 	memcpy (params->cameraguid, &data[ptpip_cmdack_guid], 16);
+ 	name = (unsigned short*)&data[ptpip_cmdack_name];
+-	for (i=0;name[i];i++) /* EMPTY */;
++	for (i=0;name[i] && (i + ptpip_cmdack_name <= dtoh32(hdr.length));i++) /* EMPTY */;
+ 	params->cameraname = calloc((i+1),sizeof(uint16_t));
+-	for (i=0;name[i];i++)
++	for (i=0;name[i] && (i + ptpip_cmdack_name <= dtoh32(hdr.length));i++)
+ 		params->cameraname[i] = name[i];
+ 	free (data);
+ 	return PTP_RC_OK;
+diff --git a/camlibs/sonydscf55/sony.c b/camlibs/sonydscf55/sony.c
+index 4cc02f32..26f00af3 100644
+--- a/camlibs/sonydscf55/sony.c
++++ b/camlibs/sonydscf55/sony.c
+@@ -173,7 +173,7 @@ sony_read_byte(Camera * camera, unsigned char *b)
+ static unsigned char
+ sony_packet_checksum(Packet * p)
+ {
+-	unsigned short int o = 0;
++	unsigned int o = 0;
+ 	unsigned long int sum = 0;
+ 
+ 	sum = 0;
+@@ -302,7 +302,7 @@ static int sony_packet_read(Camera * camera, Packet * pack)
+ static int
+ sony_packet_write(Camera * camera, Packet * p)
+ {
+-	unsigned short int count;
++	unsigned int count;
+ 	int rc;
+ 
+ 	GP_DEBUG(
+diff --git a/camlibs/sonydscf55/sony.h b/camlibs/sonydscf55/sony.h
+index f5ec0835..1cd386f8 100644
+--- a/camlibs/sonydscf55/sony.h
++++ b/camlibs/sonydscf55/sony.h
+@@ -35,7 +35,7 @@ typedef enum {
+ 
+ typedef struct _tagPacket {
+ 	int valid;
+-	int length;
++	unsigned int length;
+ 	unsigned char buffer[16384];
+ 	unsigned char checksum;
+ } Packet;
+diff --git a/camlibs/template/template.c b/camlibs/template/template.c
+index c55f7f37..87f6e1ec 100644
+--- a/camlibs/template/template.c
++++ b/camlibs/template/template.c
+@@ -461,7 +461,7 @@ camera_abilities (CameraAbilitiesList *list)
+ 	a.port     = GP_PORT_SERIAL | GP_PORT_USB;
+ 	a.speed[0] = 0;
+ 	a.operations        = 	GP_OPERATION_CAPTURE_PREVIEW |
+-				GP_CAPTURE_IMAGE;
++				GP_OPERATION_CAPTURE_IMAGE;
+ 	a.file_operations   = 	GP_FILE_OPERATION_DELETE |
+ 				GP_FILE_OPERATION_PREVIEW;
+ 	a.folder_operations = 	GP_FOLDER_OPERATION_NONE;
+diff --git a/libgphoto2_port/disk/disk.c b/libgphoto2_port/disk/disk.c
+index ee3d5fc3..098910c4 100644
+--- a/libgphoto2_port/disk/disk.c
++++ b/libgphoto2_port/disk/disk.c
+@@ -112,6 +112,7 @@ gp_port_library_list (GPPortInfoList *list)
+ 			    (NULL != strstr(mntent->mnt_type,"afs")) ||
+ 			/* avoid some dirs */
+ 			    (0 == strncmp(mntent->mnt_dir,"/boot",5)) ||
++			    (0 == strcmp(mntent->mnt_dir,"/")) ||
+ 			/* mount options */
+ 				/* x-systemd.automount or similar */
+ 			    (NULL != strstr(mntent->mnt_opts,"automount"))
+@@ -184,6 +185,7 @@ gp_port_library_list (GPPortInfoList *list)
+ 			    (NULL != strstr(mntent->mnt_type,"afs")) ||
+ 			/* avoid some dirs */
+ 			    (0 == strncmp(mntent->mnt_dir,"/boot",5)) ||
++			    (0 == strcmp(mntent->mnt_dir,"/")) ||
+ 			/* options */
+ 			    (NULL != strstr(mntent->mnt_opts,"automount"))
+ 			) {
