@@ -327,7 +327,7 @@
                 },
                 {
                     "type": "patch",
-                    "path": "libgphoto_fix-canon-logic.patch"
+                    "path": "libgphoto2-2.5.34-master.patch"
                 }
             ]
         },
@@ -413,19 +413,22 @@
             ]
         },
         {
-            "name": "qt6-qtdatavis3d",
+            "name": "qt6-qtgraphs",
             "buildsystem": "cmake-ninja",
             "builddir": true,
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v6.10.0/qtdatavis3d-v6.10.0.tar.gz",
-                    "sha256": "827518719d9efa3c7a8521ac89c22fa1a95cf1a8d4401fd3826feaec95a9e77f",
+                    "url": "https://invent.kde.org/qt/qt/qtgraphs/-/archive/v6.10.2/qtgraphs-v6.10.2.tar.gz",
+                    "sha256": "1cc5845d2e17296138580aa2da57eb594e71fb1bf15f2f7b7888ff85b8d151be",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 7927,
                         "stable-only": true,
-                        "url-template": "https://invent.kde.org/qt/qt/qtdatavis3d/-/archive/v$version/qtdatavis3d-v$version.tar.gz"
+                        "versions": {
+                            "<": "6.11.0"
+                        },
+                        "url-template": "https://invent.kde.org/qt/qt/qtgraphs/-/archive/v$version/qtgraphs-v$version.tar.gz"
                     }
                 }
             ]
@@ -570,8 +573,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.2.4.2.tar.gz",
-                    "sha256": "025bf3d5e4edebae86851d3a5d66ba4596a2c3a49f861f7c49d99b421dadf102",
+                    "url": "https://github.com/indilib/indi/archive/refs/tags/v2.2.5.tar.gz",
+                    "sha256": "938cae0b3bfbd34e73ae797bd4a0e5a64fe21753d2b560d88cafab0c61771628",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 6838,
@@ -592,8 +595,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.4.1.tar.gz",
-                    "sha256": "2ca31244224faa3db667baac71d6a7d2f056b0b8169ee1cdb37f7ca4a7203c25",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.5.tar.gz",
+                    "sha256": "c4db74b0b8c87a906cf7f90393118002e7fcce419cd967943034eca22bbbb059",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -618,8 +621,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.4.1.tar.gz",
-                    "sha256": "2ca31244224faa3db667baac71d6a7d2f056b0b8169ee1cdb37f7ca4a7203c25",
+                    "url": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v2.2.5.tar.gz",
+                    "sha256": "c4db74b0b8c87a906cf7f90393118002e7fcce419cd967943034eca22bbbb059",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242076,
@@ -640,8 +643,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://download.kde.org/stable/kstars/3.8.4.1/kstars-3.8.4.1.tar.xz",
-                    "sha256": "e58ca61c9d7963892ef9aef8d0b82f88b7e9e9be7a35b137ee1aa2d82030eabd",
+                    "url": "https://download.kde.org/stable/kstars/3.8.5/kstars-3.8.5.tar.xz",
+                    "sha256": "18f578944bfba800f7091aef83550d898e0c36bddfe2969f7bb87807df60e5b3",
                     "x-checker-data": {
                         "is-main-source": true,
                         "type": "anitya",
@@ -652,7 +655,7 @@
                 },
                 {
                     "type": "patch",
-                    "path": "kstars-stable-3.8.4.patch"
+                    "path": "kstars-stable-3.8.5.patch"
                 }
             ]
         }
