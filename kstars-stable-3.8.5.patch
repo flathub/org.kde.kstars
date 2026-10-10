@@ -1,6 +1,1083 @@
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/auxiliary/ksutils.cpp kstars/kstars/auxiliary/ksutils.cpp
+--- kstars_stable/kstars/auxiliary/ksutils.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/auxiliary/ksutils.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -28,6 +28,11 @@
+ 
+ #if defined(__APPLE__)
+ #include <sys/sysctl.h>
++#include <unistd.h>
++#include <QCoreApplication>
++#include <QElapsedTimer>
++#include <QLocalSocket>
++#include <QThread>
+ #elif defined(_WIN32)
+ #include "windows.h"
+ #else //Linux
+@@ -1459,6 +1464,180 @@
+     return true;
+ }
+ 
++namespace
++{
++const QString kDBusLaunchAgentLabel = QStringLiteral("org.freedesktop.dbus-kstars");
++
++// Escapes a value for use inside a D-Bus address, e.g. the space in "Application Support".
++QString escapeDBusAddressValue(const QString &value)
++{
++    QString escaped;
++    for (const char c : value.toUtf8())
++    {
++        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
++                || c == '-' || c == '_' || c == '/' || c == '.')
++            escaped += QLatin1Char(c);
++        else
++            escaped += QLatin1Char('%') + QString::number(static_cast<uchar>(c), 16).rightJustified(2, QLatin1Char('0'));
++    }
++    return escaped;
++}
++
++// The socket is owned by dbus-daemon itself, so a successful connection means the bus is up.
++bool isDBusSocketReachable(const QString &socketPath, int timeoutMs)
++{
++    QLocalSocket socket;
++    socket.connectToServer(socketPath);
++    const bool connected = socket.waitForConnected(timeoutMs);
++    socket.abort();
++    return connected;
++}
++
++int runLaunchctl(const QStringList &args)
++{
++    QProcess launchctl;
++    launchctl.start(QStringLiteral("/bin/launchctl"), args);
++    if (!launchctl.waitForFinished(10000))
++    {
++        launchctl.kill();
++        qCWarning(KSTARS) << "launchctl" << args << "timed out";
++        return -1;
++    }
++    if (launchctl.exitCode() != 0)
++        qCDebug(KSTARS) << "launchctl" << args << "exited with" << launchctl.exitCode()
++                        << launchctl.readAllStandardError().trimmed();
++    return launchctl.exitCode();
++}
++}
++
++bool setupMacDBus(QString *logPath)
++{
++    const QString appDir = QCoreApplication::applicationDirPath();
++    const QString daemonPath = appDir + "/dbus-daemon";
++    const QString configPath = QDir(appDir + "/../PlugIns/dbus/kstars.conf").absolutePath();
++
++    // Not running from an app bundle (e.g. a development build): rely on the existing session bus setup.
++    if (!QFileInfo::exists(daemonPath) || !QFileInfo::exists(configPath))
++    {
++        qCInfo(KSTARS) << "Bundled dbus-daemon not found, using the default session bus.";
++        return true;
++    }
++
++    // dbus-daemon used to be socket-activated by launchd (launchd:env=DBUS_LAUNCHD_SESSION_BUS_SOCKET in
++    // kstars.conf), but launchd no longer hands the socket to the daemon on recent macOS versions, which left
++    // KStars waiting forever for a bus that never answers. The daemon now listens on its own socket at a fixed
++    // path (--address overrides the <listen> element of kstars.conf) and launchd only keeps it running.
++    QString dbusDir = QDir::homePath() + "/Library/Application Support/kstars/dbus";
++    QString socketPath = dbusDir + "/session_bus_socket";
++    // sun_path is limited to 104 bytes on macOS.
++    if (socketPath.toUtf8().size() >= 104)
++    {
++        dbusDir = QDir::tempPath() + "/kstars-dbus";
++        socketPath = dbusDir + "/session_bus_socket";
++    }
++    QDir().mkpath(dbusDir);
++    QFile::setPermissions(dbusDir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
++
++    const QString address = "unix:path=" + escapeDBusAddressValue(socketPath);
++    const QByteArray currentAddress = qgetenv("DBUS_SESSION_BUS_ADDRESS");
++    if (!currentAddress.isEmpty() && currentAddress != address.toUtf8())
++    {
++        qCInfo(KSTARS) << "Using the session bus from DBUS_SESSION_BUS_ADDRESS:" << currentAddress;
++        return true;
++    }
++
++    const QString daemonLogPath = dbusDir + "/dbus-daemon.log";
++    if (logPath)
++        *logPath = daemonLogPath;
++    const QString plist = QStringLiteral(
++                              "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++                              "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
++                              "<plist version=\"1.0\">\n"
++                              "<dict>\n"
++                              "    <key>Label</key>\n"
++                              "    <string>%1</string>\n"
++                              "    <key>ProgramArguments</key>\n"
++                              "    <array>\n"
++                              "        <string>%2</string>\n"
++                              "        <string>--nofork</string>\n"
++                              "        <string>--config-file=%3</string>\n"
++                              "        <string>--address=%4</string>\n"
++                              "    </array>\n"
++                              "    <key>RunAtLoad</key>\n"
++                              "    <true/>\n"
++                              "    <key>KeepAlive</key>\n"
++                              "    <true/>\n"
++                              "    <key>StandardErrorPath</key>\n"
++                              "    <string>%5</string>\n"
++                              "</dict>\n"
++                              "</plist>\n")
++                          .arg(kDBusLaunchAgentLabel, daemonPath.toHtmlEscaped(), configPath.toHtmlEscaped(),
++                               address.toHtmlEscaped(), daemonLogPath.toHtmlEscaped());
++
++    const QString agentsDir = QDir::homePath() + "/Library/LaunchAgents";
++    const QString plistPath = agentsDir + "/" + kDBusLaunchAgentLabel + ".plist";
++    QDir().mkpath(agentsDir);
++
++    bool plistChanged = true;
++    QFile existing(plistPath);
++    if (existing.open(QIODevice::ReadOnly))
++    {
++        plistChanged = existing.readAll() != plist.toUtf8();
++        existing.close();
++    }
++    if (plistChanged)
++    {
++        QFile out(plistPath);
++        if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate) || out.write(plist.toUtf8()) < 0)
++        {
++            qCWarning(KSTARS) << "Failed to write" << plistPath << out.errorString();
++            return false;
++        }
++        out.close();
++    }
++
++    // KStars and the processes it starts use the bus through the environment; launchctl setenv makes it
++    // available to other apps launched afterwards as well.
++    qputenv("DBUS_SESSION_BUS_ADDRESS", address.toUtf8());
++    runLaunchctl({"setenv", "DBUS_SESSION_BUS_ADDRESS", address});
++
++    if (!plistChanged && isDBusSocketReachable(socketPath, 1000))
++        return true;
++
++    qCInfo(KSTARS) << "Starting D-Bus session bus at" << address;
++    const QString domain = QString("gui/%1").arg(getuid());
++    const QString service = domain + "/" + kDBusLaunchAgentLabel;
++
++    // Replaces any older socket-activated job, or a daemon that stopped answering.
++    runLaunchctl({"bootout", service});
++    runLaunchctl({"unsetenv", "DBUS_LAUNCHD_SESSION_BUS_SOCKET"});
++    QFile::remove(socketPath);
++    runLaunchctl({"enable", service});
++
++    // bootout completes asynchronously, so bootstrap may need a few attempts.
++    for (int attempt = 0; attempt < 5; ++attempt)
++    {
++        if (runLaunchctl({"bootstrap", domain, plistPath}) == 0)
++            break;
++        QThread::msleep(500);
++    }
++
++    QElapsedTimer timer;
++    timer.start();
++    while (timer.elapsed() < 15000)
++    {
++        if (isDBusSocketReachable(socketPath, 250))
++        {
++            qCInfo(KSTARS) << "D-Bus session bus started.";
++            return true;
++        }
++        QThread::msleep(100);
++    }
++
++    qCCritical(KSTARS) << "D-Bus session bus did not start. See" << daemonLogPath;
++    return false;
++}
++
+ bool configureAstrometry()
+ {
+     QStringList astrometryDataDirs = getAstrometryDataDirs();
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/auxiliary/ksutils.h kstars/kstars/auxiliary/ksutils.h
+--- kstars_stable/kstars/auxiliary/ksutils.h	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/auxiliary/ksutils.h	2026-10-10 10:53:30.000000000 +0300
+@@ -304,6 +304,10 @@
+ #ifdef Q_OS_MACOS
+ void copyResourcesFolderFromAppBundle(QString folder, const QStringList &excludeFiles = {});
+ bool setupMacKStarsIfNeeded(); //The boolean returns true if the data folders are good to go.
++// Makes sure the bundled D-Bus session bus is running and DBUS_SESSION_BUS_ADDRESS points to it. Must be called
++// before anything connects to the session bus. Returns false if the bus could not be started; logPath then holds
++// the path of the dbus-daemon log.
++bool setupMacDBus(QString *logPath = nullptr);
+ bool configureAstrometry();
+ bool replaceIndexFileNotYetSet();
+ bool copyRecursively(QString sourceFolder, QString destFolder, const QStringList &excludeFiles = {});
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/data/cameradata/Player_One_Uranus-C.xml kstars/kstars/data/cameradata/Player_One_Uranus-C.xml
+--- kstars_stable/kstars/data/cameradata/Player_One_Uranus-C.xml	1970-01-01 03:00:00.000000000 +0300
++++ kstars/kstars/data/cameradata/Player_One_Uranus-C.xml	2026-10-10 10:53:30.000000000 +0300
+@@ -0,0 +1,38 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<ExposureCalculatorCameraData>
++    <CameraDataClassVersion>1</CameraDataClassVersion>
++    <CameraId>Player One Astronomy Uranus-C </CameraId>
++    <SensorType>COLOR</SensorType>
++    <GainSelectionType>NORMAL</GainSelectionType>
++    <CameraGainSelections>
++        <GainSelection>0</GainSelection>
++        <GainSelection>450</GainSelection>
++    </CameraGainSelections>
++    <CameraGainReadMode>
++        <GainReadModeNumber>0</GainReadModeNumber>
++        <GainReadModeName>Normal Mode</GainReadModeName>
++        <CameraGainReadNoise>
++          <GainReadNoiseValue><Gain>0</Gain><ReadNoise>7.262</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>5</Gain><ReadNoise>7.0</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>30</Gain><ReadNoise>6.086</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>60</Gain><ReadNoise>5.475</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>90</Gain><ReadNoise>4.912</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>120</Gain><ReadNoise>4.529</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>125</Gain><ReadNoise>4.491</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>150</Gain><ReadNoise>4.233</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>180</Gain><ReadNoise>3.984</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>200</Gain><ReadNoise>3.900</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>210</Gain><ReadNoise>1.072</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>240</Gain><ReadNoise>0.995</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>270</Gain><ReadNoise>0.938</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>300</Gain><ReadNoise>0.897</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>330</Gain><ReadNoise>0.866</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>360</Gain><ReadNoise>0.831</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>390</Gain><ReadNoise>0.805</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>420</Gain><ReadNoise>0.783</ReadNoise></GainReadNoiseValue>
++          <GainReadNoiseValue><Gain>450</Gain><ReadNoise>0.755</ReadNoise></GainReadNoiseValue>
++        </CameraGainReadNoise>
++    </CameraGainReadMode>
++    <CameraPixelSize>2.9</CameraPixelSize>
++    <CameraQuantumEfficiency>0.91</CameraQuantumEfficiency>
++</ExposureCalculatorCameraData>
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/data/cameradata/Sony_a_5000.xml kstars/kstars/data/cameradata/Sony_a_5000.xml
+--- kstars_stable/kstars/data/cameradata/Sony_a_5000.xml	1970-01-01 03:00:00.000000000 +0300
++++ kstars/kstars/data/cameradata/Sony_a_5000.xml	2026-10-10 10:53:30.000000000 +0300
+@@ -0,0 +1,148 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<ExposureCalculatorCameraData>
++    <CameraDataClassVersion>1</CameraDataClassVersion>
++    <CameraId>Sony a 5000</CameraId>
++    <SensorType>COLOR</SensorType>
++    <GainSelectionType>ISO_DISCRETE</GainSelectionType>
++    <CameraGainSelections>
++        <GainSelection>100</GainSelection>
++        <GainSelection>125</GainSelection>
++        <GainSelection>160</GainSelection>
++        <GainSelection>200</GainSelection>
++        <GainSelection>250</GainSelection>
++        <GainSelection>320</GainSelection>
++        <GainSelection>400</GainSelection>
++        <GainSelection>500</GainSelection>
++        <GainSelection>640</GainSelection>
++        <GainSelection>800</GainSelection>
++        <GainSelection>1000</GainSelection>
++        <GainSelection>1250</GainSelection>
++        <GainSelection>1600</GainSelection>
++        <GainSelection>2000</GainSelection>
++        <GainSelection>2500</GainSelection>
++        <GainSelection>3200</GainSelection>
++        <GainSelection>4000</GainSelection>
++        <GainSelection>5000</GainSelection>
++        <GainSelection>6400</GainSelection>
++        <GainSelection>8000</GainSelection>
++        <GainSelection>10000</GainSelection>
++        <GainSelection>12800</GainSelection>
++        <GainSelection>16000</GainSelection>
++    </CameraGainSelections>
++    <CameraGainReadMode>
++        <GainReadModeNumber>0</GainReadModeNumber>
++        <GainReadModeName>Standard</GainReadModeName>
++        <CameraGainReadNoise>
++            <GainReadNoiseValue>
++                <Gain>100</Gain>
++                <ReadNoise>2.4</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>126</Gain>
++                <ReadNoise>2.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>159</Gain>
++                <ReadNoise>2.15</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>200</Gain>
++                <ReadNoise>2.0</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>251</Gain>
++                <ReadNoise>1.95</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>318</Gain>
++                <ReadNoise>1.9</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>400</Gain>
++                <ReadNoise>1.8</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>503</Gain>
++                <ReadNoise>1.8</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>636</Gain>
++                <ReadNoise>1.7</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>800</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>1006</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>1273</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>1600</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>2011</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>2546</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>3200</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>4022</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>5091</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>6400</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>8045</Gain>
++                <ReadNoise>1.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>10183</Gain>
++                <ReadNoise>1.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>12800</Gain>
++                <ReadNoise>1.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>16090</Gain>
++                <ReadNoise>1.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>20366</Gain>
++                <ReadNoise>1.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>25600</Gain>
++                <ReadNoise>1.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>32180</Gain>
++                <ReadNoise>1.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>40731</Gain>
++                <ReadNoise>1.2</ReadNoise>
++            </GainReadNoiseValue>
++        </CameraGainReadNoise>
++    </CameraGainReadMode>
++    <CameraPixelSize>5.34</CameraPixelSize>
++    <CameraQuantumEfficiency>0.36</CameraQuantumEfficiency>
++</ExposureCalculatorCameraData>
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/data/cameradata/Sony_a_7.xml kstars/kstars/data/cameradata/Sony_a_7.xml
+--- kstars_stable/kstars/data/cameradata/Sony_a_7.xml	1970-01-01 03:00:00.000000000 +0300
++++ kstars/kstars/data/cameradata/Sony_a_7.xml	2026-10-10 10:53:30.000000000 +0300
+@@ -0,0 +1,113 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<ExposureCalculatorCameraData>
++    <CameraDataClassVersion>1</CameraDataClassVersion>
++    <CameraId>Sony a 7</CameraId>
++    <SensorType>COLOR</SensorType>
++    <GainSelectionType>ISO_DISCRETE</GainSelectionType>
++    <CameraGainSelections>
++        <GainSelection>50</GainSelection>
++        <GainSelection>64</GainSelection>
++        <GainSelection>80</GainSelection>
++        <GainSelection>100</GainSelection>
++        <GainSelection>125</GainSelection>
++        <GainSelection>160</GainSelection>
++        <GainSelection>200</GainSelection>
++        <GainSelection>250</GainSelection>
++        <GainSelection>320</GainSelection>
++        <GainSelection>400</GainSelection>
++        <GainSelection>500</GainSelection>
++        <GainSelection>640</GainSelection>
++        <GainSelection>800</GainSelection>
++        <GainSelection>1000</GainSelection>
++        <GainSelection>1250</GainSelection>
++        <GainSelection>1600</GainSelection>
++        <GainSelection>2000</GainSelection>
++        <GainSelection>2500</GainSelection>
++        <GainSelection>3200</GainSelection>
++    </CameraGainSelections>
++    <CameraGainReadMode>
++        <GainReadModeNumber>0</GainReadModeNumber>
++        <GainReadModeName>Standard</GainReadModeName>
++        <CameraGainReadNoise>
++            <GainReadNoiseValue>
++                <Gain>50</Gain>
++                <ReadNoise>2.25</ReadNoise>
++            </GainReadNoiseValue>           
++            <GainReadNoiseValue>
++                <Gain>64</Gain>
++                <ReadNoise>2.05</ReadNoise>
++            </GainReadNoiseValue>            
++            <GainReadNoiseValue>
++                <Gain>80</Gain>
++                <ReadNoise>1.9</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>100</Gain>
++                <ReadNoise>2.13</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>125</Gain>
++                <ReadNoise>2.0</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>160</Gain>
++                <ReadNoise>1.9</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>200</Gain>
++                <ReadNoise>1.8</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>250</Gain>
++                <ReadNoise>1.75</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>320</Gain>
++                <ReadNoise>1.68</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>400</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>500</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>640</Gain>
++                <ReadNoise>1.7</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>800</Gain>
++                <ReadNoise>1.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>1000</Gain>
++                <ReadNoise>1.5</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>1250</Gain>
++                <ReadNoise>1.5</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>1600</Gain>
++                <ReadNoise>1.5</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>2000</Gain>
++                <ReadNoise>1.5</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>2500</Gain>
++                <ReadNoise>1.5</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>3200</Gain>
++                <ReadNoise>1.5</ReadNoise>
++            </GainReadNoiseValue>
++
++        </CameraGainReadNoise>
++    </CameraGainReadMode>
++    <CameraPixelSize>5.92</CameraPixelSize>
++    <CameraQuantumEfficiency>0.40</CameraQuantumEfficiency>
++</ExposureCalculatorCameraData>
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/data/cameradata/ZWO_CCD_ASI462MC.xml kstars/kstars/data/cameradata/ZWO_CCD_ASI462MC.xml
+--- kstars_stable/kstars/data/cameradata/ZWO_CCD_ASI462MC.xml	1970-01-01 03:00:00.000000000 +0300
++++ kstars/kstars/data/cameradata/ZWO_CCD_ASI462MC.xml	2026-10-10 10:53:30.000000000 +0300
+@@ -0,0 +1,59 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<ExposureCalculatorCameraData>
++    <CameraDataClassVersion>1</CameraDataClassVersion>
++    <CameraId>ZWO CCD ASI462MC</CameraId>
++    <SensorType>COLOR</SensorType>
++    <GainSelectionType>NORMAL</GainSelectionType>
++    <CameraGainSelections>
++        <GainSelection>0</GainSelection>
++        <GainSelection>350</GainSelection>
++    </CameraGainSelections>
++    <CameraGainReadMode>
++        <GainReadModeNumber>0</GainReadModeNumber>
++        <GainReadModeName>Standard</GainReadModeName>
++        <CameraGainReadNoise>
++            <GainReadNoiseValue>
++                <Gain>0</Gain>
++                <ReadNoise>2.5</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>50</Gain>
++                <ReadNoise>2.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>79</Gain>
++                <ReadNoise>2.0</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>80</Gain>
++                <ReadNoise>1.05</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>100</Gain>
++                <ReadNoise>1</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>150</Gain>
++                <ReadNoise>0.9</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>200</Gain>
++                <ReadNoise>0.8</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>250</Gain>
++                <ReadNoise>0.7</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>300</Gain>
++                <ReadNoise>0.6</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>350</Gain>
++                <ReadNoise>0.5</ReadNoise>
++            </GainReadNoiseValue>
++        </CameraGainReadNoise>
++    </CameraGainReadMode>
++    <CameraPixelSize>2.9</CameraPixelSize>
++    <CameraQuantumEfficiency>0.75</CameraQuantumEfficiency>
++</ExposureCalculatorCameraData>
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/data/cameradata/ZWO_CCD_ASI482MC.xml kstars/kstars/data/cameradata/ZWO_CCD_ASI482MC.xml
+--- kstars_stable/kstars/data/cameradata/ZWO_CCD_ASI482MC.xml	1970-01-01 03:00:00.000000000 +0300
++++ kstars/kstars/data/cameradata/ZWO_CCD_ASI482MC.xml	2026-10-10 10:53:30.000000000 +0300
+@@ -0,0 +1,59 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<ExposureCalculatorCameraData>
++    <CameraDataClassVersion>1</CameraDataClassVersion>
++    <CameraId>ZWO CCD ASI482MC</CameraId>
++    <SensorType>COLOR</SensorType>
++    <GainSelectionType>NORMAL</GainSelectionType>
++    <CameraGainSelections>
++        <GainSelection>0</GainSelection>
++        <GainSelection>350</GainSelection>
++    </CameraGainSelections>
++    <CameraGainReadMode>
++        <GainReadModeNumber>0</GainReadModeNumber>
++        <GainReadModeName>Standard</GainReadModeName>
++        <CameraGainReadNoise>
++            <GainReadNoiseValue>
++                <Gain>0</Gain>
++                <ReadNoise>13.0</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>50</Gain>
++                <ReadNoise>8.0</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>79</Gain>
++                <ReadNoise>6.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>80</Gain>
++                <ReadNoise>4.2</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>100</Gain>
++                <ReadNoise>4.03</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>150</Gain>
++                <ReadNoise>2.7</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>200</Gain>
++                <ReadNoise>2.1</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>250</Gain>
++                <ReadNoise>2.0</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>300</Gain>
++                <ReadNoise>1.9</ReadNoise>
++            </GainReadNoiseValue>
++            <GainReadNoiseValue>
++                <Gain>350</Gain>
++                <ReadNoise>1.8</ReadNoise>
++            </GainReadNoiseValue>
++        </CameraGainReadNoise>
++    </CameraGainReadMode>
++    <CameraPixelSize>3.75</CameraPixelSize>
++    <CameraQuantumEfficiency>0.75</CameraQuantumEfficiency>
++</ExposureCalculatorCameraData>
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/align/align_goto.cpp kstars/kstars/ekos/align/align_goto.cpp
+--- kstars_stable/kstars/ekos/align/align_goto.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/align/align_goto.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -63,32 +63,35 @@
+     m_RotatorParityRetried = false;
+     m_RemoteAlignTimer.stop();
+ 
+-    disconnect(m_Camera, &ISD::Camera::newImage, this, &Ekos::Align::processData);
+-    disconnect(m_Camera, &ISD::Camera::newExposureValue, this, &Ekos::Align::checkCameraExposureProgress);
++    // Stop can be requested (e.g. by mount motion or EkosLive) while no camera is selected.
++    ISD::CameraChip *targetChip = nullptr;
++    if (m_Camera)
++    {
++        disconnect(m_Camera, &ISD::Camera::newImage, this, &Ekos::Align::processData);
++        disconnect(m_Camera, &ISD::Camera::newExposureValue, this, &Ekos::Align::checkCameraExposureProgress);
+ 
+-    if (rememberUploadMode != m_Camera->getUploadMode())
+-        m_Camera->setUploadMode(rememberUploadMode);
++        if (rememberUploadMode != m_Camera->getUploadMode())
++            m_Camera->setUploadMode(rememberUploadMode);
+ 
+-    // Remember to reset fast exposure
+-    if (m_RememberCameraFastExposure)
+-    {
+-        m_RememberCameraFastExposure = false;
+-        m_Camera->setFastExposureEnabled(true);
+-    }
++        // Remember to reset fast exposure
++        if (m_RememberCameraFastExposure)
++            m_Camera->setFastExposureEnabled(true);
+ 
+-    auto targetChip = m_Camera->getChip(useGuideHead ? ISD::CameraChip::GUIDE_CCD : ISD::CameraChip::PRIMARY_CCD);
++        targetChip = m_Camera->getChip(useGuideHead ? ISD::CameraChip::GUIDE_CCD : ISD::CameraChip::PRIMARY_CCD);
++    }
++    m_RememberCameraFastExposure = false;
+ 
+     // If capture is still in progress, let's stop that.
+     if (matchPAHStage(PAA::PAH_POST_REFRESH))
+     {
+-        if (targetChip->isCapturing())
++        if (targetChip && targetChip->isCapturing())
+             targetChip->abortExposure();
+ 
+         appendLogText(i18n("Refresh is complete."));
+     }
+     else
+     {
+-        if (targetChip->isCapturing())
++        if (targetChip && targetChip->isCapturing())
+         {
+             targetChip->abortExposure();
+             appendLogText(i18n("Capture aborted."));
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/align/align_solution.cpp kstars/kstars/ekos/align/align_solution.cpp
+--- kstars_stable/kstars/ekos/align/align_solution.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/align/align_solution.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -329,7 +329,7 @@
+     // Lines of RA converge toward the poles, so a raw RA-coordinate difference overstates the
+     // actual on-sky separation more and more as declination increases.
+     m_TargetDiffRA = (m_AlignCoord.ra().deltaAngle(m_TargetCoord.ra())).Degrees() * 3600 *
+-                      cos(m_TargetCoord.dec().radians());  // arcsec
++                     cos(m_TargetCoord.dec().radians());  // arcsec
+     m_TargetDiffDE = (m_AlignCoord.dec().deltaAngle(m_TargetCoord.dec())).Degrees() * 3600;  // arcsec
+ 
+     // Must update target coordinate horizontal coordinates.
+@@ -350,7 +350,7 @@
+     if (Options::astrometryDifferentialSlewing())
+     {
+         m_TargetDiffRA = (m_AlignCoord.ra().deltaAngle(m_DestinationCoord.ra())).Degrees() * 3600 *
+-                          cos(m_DestinationCoord.dec().radians());  // arcsec
++                         cos(m_DestinationCoord.dec().radians());  // arcsec
+         m_TargetDiffDE = (m_AlignCoord.dec().deltaAngle(m_DestinationCoord.dec())).Degrees() * 3600;  // arcsec
+         m_TargetDiffAZ = (m_AlignCoord.az().deltaAngle(m_DestinationCoord.az())).Degrees() * 3600;  // arcsec
+         m_TargetDiffAL = (m_AlignCoord.alt().deltaAngle(m_DestinationCoord.alt())).Degrees() * 3600;  // arcsec
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/align/opsastrometryindexfiles.cpp kstars/kstars/ekos/align/opsastrometryindexfiles.cpp
+--- kstars_stable/kstars/ekos/align/opsastrometryindexfiles.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/align/opsastrometryindexfiles.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -843,22 +843,22 @@
+                 // Per slotUpdate(), an index is usable for FOVs between the skymark size
+                 // and 10x the skymark size, and ideal for FOVs between ~1.1x and 2.5x it.
+                 fovDescription = QString("Index Scale: %1' - Usable FOV: %2' - %3'")
+-                                  .arg(QString::number(skymarkSize, 'f', 1),
+-                                       QString::number(skymarkSize, 'f', 1),
+-                                       QString::number(skymarkSize * 10.0, 'f', 1));
++                                 .arg(QString::number(skymarkSize, 'f', 1),
++                                      QString::number(skymarkSize, 'f', 1),
++                                      QString::number(skymarkSize * 10.0, 'f', 1));
+             }
+ 
+             qCInfo(KSTARS_EKOS_ALIGN) << "Astrometry Index Files:" << dirPath << series
+-                                       << QString("%1/%2 files").arg(files.count()).arg(expectedCount)
+-                                       << QString("%1 MB").arg(QString::number(totalBytes / 1048576.0, 'f', 1))
+-                                       << fovDescription
+-                                       << (complete ? "Complete" : "Incomplete");
++                                      << QString("%1/%2 files").arg(files.count()).arg(expectedCount)
++                                      << QString("%1 MB").arg(QString::number(totalBytes / 1048576.0, 'f', 1))
++                                      << fovDescription
++                                      << (complete ? "Complete" : "Incomplete");
+             totalSeriesFound++;
+         }
+     }
+ 
+     qCInfo(KSTARS_EKOS_ALIGN) << QString("Astrometry Index Files: Found %1 index series across %2 configured director%3.")
+-                               .arg(totalSeriesFound).arg(astrometryDataDirs.count()).arg(astrometryDataDirs.count() == 1 ? "y" : "ies");
++                              .arg(totalSeriesFound).arg(astrometryDataDirs.count()).arg(astrometryDataDirs.count() == 1 ? "y" : "ies");
+ }
+ 
+ void OpsAstrometryIndexFiles::installIndexFile(const QString &name)
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/align/polaralignmentassistant.cpp kstars/kstars/ekos/align/polaralignmentassistant.cpp
+--- kstars_stable/kstars/ekos/align/polaralignmentassistant.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/align/polaralignmentassistant.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -769,10 +769,21 @@
+ 
+ void PolarAlignmentAssistant::startPAHProcess()
+ {
++    // PAH can be started remotely (e.g. from EkosLive) while no mount is selected
++    if (m_CurrentTelescope == nullptr)
++    {
++        Q_EMIT newLog(i18n("Polar alignment requires a mount. Please select a mount in the optical train."));
++        return;
++    }
++
+     qCInfo(KSTARS_EKOS_ALIGN) << QString("Starting Polar Alignment Assistant process %1 ...").arg(PAA_VERSION);
+ 
+     auto executePAH = [ this ]()
+     {
++        // The mount may have been removed while the meridian warning was displayed
++        if (m_CurrentTelescope == nullptr)
++            return;
++
+         setPAHStage(PAH_FIRST_CAPTURE);
+ 
+         if (Options::limitedResourcesMode())
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/auxiliary/darklibrary.cpp kstars/kstars/ekos/auxiliary/darklibrary.cpp
+--- kstars_stable/kstars/ekos/auxiliary/darklibrary.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/auxiliary/darklibrary.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -470,9 +470,10 @@
+     }
+ 
+     if (std::abs(bestCandidate["duration"].toDouble() - duration) > 3)
+-        Q_EMIT newLog(i18n("Using available dark frame with %1 seconds exposure. Please take a dark frame with %2 seconds exposure for more accurate results.",
+-                           QString::number(bestCandidate["duration"].toDouble(), 'f', 1),
+-                           QString::number(duration, 'f', 1)));
++        Q_EMIT newLog(
++            i18n("Using available dark frame with %1 seconds exposure. Please take a dark frame with %2 seconds exposure for more accurate results.",
++                 QString::number(bestCandidate["duration"].toDouble(), 'f', 1),
++                 QString::number(duration, 'f', 1)));
+ 
+     QString filename = bestCandidate["filename"].toString();
+ 
+@@ -481,8 +482,9 @@
+     const qint64 frameAge = frameTime.daysTo(QDateTime::currentDateTime());
+     if (frameAge > Options::darkLibraryDuration())
+     {
+-        const QString reason = i18n("The matching dark frame is %1 days old but the dark library is set to reuse dark frames for %2 days.",
+-                                    frameAge, Options::darkLibraryDuration());
++        const QString reason =
++            i18n("The matching dark frame is %1 days old but the dark library is set to reuse dark frames for %2 days.",
++                 frameAge, Options::darkLibraryDuration());
+         qCWarning(KSTARS_EKOS).noquote() << "Rejected expired dark frame" << filename << "-" << reason;
+         if (failureReason)
+             *failureReason = reason;
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/auxiliary/portselector.cpp kstars/kstars/ekos/auxiliary/portselector.cpp
+--- kstars_stable/kstars/ekos/auxiliary/portselector.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/auxiliary/portselector.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -379,6 +379,7 @@
+     mainLayout->addWidget(buttonBox);
+ 
+     setWindowTitle(i18nc("@title:window", "Port Selector"));
++    setObjectName("PortSelector");
+ #ifdef Q_OS_MACOS
+     setWindowFlags(Qt::Tool | Qt::WindowStaysOnTopHint);
+ #endif
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/capture/cameraprocess.cpp kstars/kstars/ekos/capture/cameraprocess.cpp
+--- kstars_stable/kstars/ekos/capture/cameraprocess.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/capture/cameraprocess.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -1630,6 +1630,10 @@
+ 
+ void CameraProcess::resetFrame()
+ {
++    // The reset frame button can be clicked while no camera is selected
++    if (!activeCamera())
++        return;
++
+     devices()->setActiveChip(state()->useGuideHead() ?
+                              devices()->getActiveCamera()->getChip(
+                                  ISD::CameraChip::GUIDE_CCD) :
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/ekoslive/ekosliveclient.cpp kstars/kstars/ekos/ekoslive/ekosliveclient.cpp
+--- kstars_stable/kstars/ekos/ekoslive/ekosliveclient.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/ekoslive/ekosliveclient.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -473,7 +473,7 @@
+ void Client::reloadCredentialsAndReconnect()
+ {
+     qCInfo(KSTARS_EKOS) <<
+-                        "Client::reloadCredentialsAndReconnect: Reloading EkosLive device tokens from disk and reconnecting disconnected managers.";
++    "Client::reloadCredentialsAndReconnect: Reloading EkosLive device tokens from disk and reconnecting disconnected managers.";
+ 
+     // Pick up any freshly-written device_secret / enrollment_token without a KStars restart.
+     loadTokensFromDisk();
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/ekoslive/message.cpp kstars/kstars/ekos/ekoslive/message.cpp
+--- kstars_stable/kstars/ekos/ekoslive/message.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/ekoslive/message.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -2930,6 +2930,17 @@
+             sendResponse(commands[NEW_POLAR_STATE], polarState);
+         }
+     }
++
++    // Scheduler only emits its status on change, so a client connecting
++    // mid-session would otherwise assume the scheduler is idle.
++    if (m_Manager->schedulerModule())
++    {
++        QJsonObject schedulerState =
++        {
++            {"status", m_Manager->schedulerModule()->moduleState()->schedulerState()}
++        };
++        sendResponse(commands[NEW_SCHEDULER_STATE], schedulerState);
++    }
+ }
+ 
+ ///////////////////////////////////////////////////////////////////////////////////////////
+@@ -3723,7 +3734,7 @@
+ // as the joiner). Every hyphen/space/underscore-separated word must be one of these —
+ // whole-segment match only, so an unrelated folder that merely contains one of these
+ // words (e.g. a target actually named "Flats Nebula") won't false-positive.
+-bool isCalibrationTypeFolderName(const QString &name)
++bool isCalibrationTypeFolderName(const QString & name)
+ {
+     static const QSet<QString> words
+     {
+@@ -3787,7 +3798,7 @@
+ QString Message::generateStackOutputPathForRoot(const QString &root, const QString &identity) const
+ {
+     const QString filename = identity.isEmpty() ? QStringLiteral("light_master.fits")
+-                              : QString("light_master_%1.fits").arg(identity);
++                             : QString("light_master_%1.fits").arg(identity);
+     return QDir(pipelineOutputDirForRoot(root)).filePath(filename);
+ }
+ 
+@@ -3807,7 +3818,7 @@
+ namespace
+ {
+ // The stackable files directly inside a folder (postprocess_stack doesn't recurse)
+-QStringList stackableFiles(const QString &directory)
++QStringList stackableFiles(const QString & directory)
+ {
+     QStringList files;
+     for (const QFileInfo &info : QDir(directory).entryInfoList(QDir::Files, QDir::Name))
+@@ -3818,8 +3829,8 @@
+ 
+ // The memory estimate as sent to clients, in inspect_directory's "inspected" state and
+ // postprocess_stack's "started"/"error" states. See "Memory" in the pipeline README.
+-QJsonObject memoryToJson(const StackMemoryEstimator::Estimate &estimate, double reclaimableBytes,
+-                         const StackMemoryEstimator::FrameGeometry &geometry, int fileCount)
++QJsonObject memoryToJson(const StackMemoryEstimator::Estimate & estimate, double reclaimableBytes,
++                         const StackMemoryEstimator::FrameGeometry & geometry, int fileCount)
+ {
+     QJsonArray options;
+     QString recommendedQuality;
+@@ -4179,13 +4190,15 @@
+                 sendPostProcessState(QJsonObject
+                 {
+                     {"state", "error"}, {"sessionId", sessionId},
+-                    {"message", QString("Session '%1' was released to save memory and its file %2 has since changed "
+-                                        "or gone — stack or load it again").arg(sessionId, m_PostProcessBacking.value(sessionId).path)}
++                    {
++                        "message", QString("Session '%1' was released to save memory and its file %2 has since changed "
++                                           "or gone — stack or load it again").arg(sessionId, m_PostProcessBacking.value(sessionId).path)
++                    }
+                 });
+                 return;
+             }
+             reloadPostProcessSessions({{sessionId, m_PostProcessBacking.value(sessionId).path}}, sessionId, command,
+-                                      [this, command, payload]()
++            [this, command, payload]()
+             {
+                 processPostProcessCommands(command, payload);
+             });
+@@ -4312,7 +4325,8 @@
+             // Weak: a strong reference held by the session's own connection would keep it
+             // (and every buffer it holds) alive after it is closed or replaced.
+             const QWeakPointer<StackController> weakSession = session;
+-            connect(session.data(), &StackController::stackReady, this, [this, filter, weakSession, wantPreview, directory](bool cancelled)
++            connect(session.data(), &StackController::stackReady, this, [this, filter, weakSession, wantPreview,
++                    directory](bool cancelled)
+             {
+                 const auto session = weakSession.toStrongRef();
+                 if (!session)
+@@ -4509,7 +4523,8 @@
+         // Weak: a strong reference held by the session's own connection would keep it
+         // (and every buffer it holds) alive after it is closed or replaced.
+         const QWeakPointer<StackController> weakSession = session;
+-        connect(session.data(), &StackController::stackReady, this, [this, sessionId, weakSession, wantPreview, directories](bool cancelled)
++        connect(session.data(), &StackController::stackReady, this, [this, sessionId, weakSession, wantPreview,
++                directories](bool cancelled)
+         {
+             const auto session = weakSession.toStrongRef();
+             if (!session)
+@@ -4868,7 +4883,7 @@
+         }
+ 
+         std::function<QJsonArray(const QVector<DirectoryInspector::Group> &)> groupsToJson =
+-                [](const QVector<DirectoryInspector::Group> &groups)
++            [](const QVector<DirectoryInspector::Group> &groups)
+         {
+             QJsonArray groupsArray;
+             for (const auto &group : groups)
+@@ -4887,7 +4902,7 @@
+         // folder plus every descendant (e.g. Lights totalFileCount = HA + SII + OIII +
+         // any files directly under Lights itself).
+         std::function<QJsonObject(const DirectoryInspector::DirectoryNode &)> nodeToJson =
+-                [&](const DirectoryInspector::DirectoryNode & node)
++            [&](const DirectoryInspector::DirectoryNode & node)
+         {
+             QJsonArray subdirsArray;
+             for (const auto &child : node.subdirs)
+@@ -5124,7 +5139,9 @@
+         // mono stacks (each holding a working Mat AND its FITS buffer) are the
+         // single biggest avoidable cost during post-processing.
+         QSet<QString> blendInputIds;
+-        for (const auto &key : { "red", "green", "blue" })
++        for (const auto &key :
++                { "red", "green", "blue"
++                })
+         {
+             for (const auto &value : payload[key].toArray())
+             {
+@@ -5190,7 +5207,10 @@
+             {
+                 double inputBytes = 0.0;
+                 int inputCount = 0;
+-                for (const auto *group : { &red, &green, &blue })
++                for (const auto *group :
++                        {
++                            &red, &green, &blue
++                        })
+                     for (const auto &in : *group)
+                     {
+                         inputBytes += static_cast<double>(in.image.total()) * in.image.elemSize();
+@@ -5206,9 +5226,11 @@
+                 {
+                     sendResponse(commands[NEW_POSTPROCESS_STATE],
+                     QJsonObject{{"state", "error"},
+-                        {"message", QString("Not enough free memory to combine channels: ~%1 MB needed, %2 MB available. "
+-                                            "Free up memory or combine fewer/smaller channels.")
+-                         .arg(needBytes / 1e6, 0, 'f', 0).arg(availBytes / 1e6, 0, 'f', 0)}});
++                        {
++                            "message", QString("Not enough free memory to combine channels: ~%1 MB needed, %2 MB available. "
++                                               "Free up memory or combine fewer/smaller channels.")
++                            .arg(needBytes / 1e6, 0, 'f', 0).arg(availBytes / 1e6, 0, 'f', 0)
++                        }});
+                     return;
+                 }
+             }
+@@ -5287,7 +5309,7 @@
+                     return cancelFlag->loadAcquire() != 0;
+                 };
+                 result.ok = ChannelBlendOperation::blendRGB(red, green, blue, result.blended, result.refWcs, result.error,
+-                                                            normalize, onProgress, isCancelled, &result.cancelled);
++                            normalize, onProgress, isCancelled, &result.cancelled);
+                 return result;
+             });
+ 
+@@ -5523,9 +5545,11 @@
+                     sendPostProcessState(QJsonObject
+                     {
+                         {"state", "error"}, {"sessionId", sessionId},
+-                        {"message", QString("Not enough free memory to run %1: ~%2 MB needed, %3 MB available. "
+-                                             "Free up memory or process a smaller image.")
+-                         .arg(command).arg(needBytes / 1e6, 0, 'f', 0).arg(availBytes / 1e6, 0, 'f', 0)}
++                        {
++                            "message", QString("Not enough free memory to run %1: ~%2 MB needed, %3 MB available. "
++                                               "Free up memory or process a smaller image.")
++                            .arg(command).arg(needBytes / 1e6, 0, 'f', 0).arg(availBytes / 1e6, 0, 'f', 0)
++                        }
+                     });
+                     return;
+                 }
+@@ -5794,7 +5818,7 @@
+         if (!session || session->imageData()->isStackedImageEmpty())
+         {
+             sendResponse(commands[NEW_POSTPROCESS_STATE],
+-                         QJsonObject{{"state", "error"},
++            QJsonObject{{"state", "error"},
+                 {"message", "No post-processing working image — call postprocess_stack first"}});
+             return;
+         }
+@@ -5803,7 +5827,7 @@
+         if (m_BusyPostProcessSessions.contains(sessionId))
+         {
+             sendResponse(commands[NEW_POSTPROCESS_STATE],
+-                         QJsonObject{{"state", "busy"}, {"sessionId", sessionId}});
++            QJsonObject{{"state", "busy"}, {"sessionId", sessionId}});
+             return;
+         }
+ 
+@@ -5841,7 +5865,7 @@
+         if (!ok)
+         {
+             sendResponse(commands[NEW_POSTPROCESS_STATE],
+-                         QJsonObject{{"state", "error"}, {"sessionId", sessionId}, {"message", histError}});
++            QJsonObject{{"state", "error"}, {"sessionId", sessionId}, {"message", histError}});
+             return;
+         }
+ 
+@@ -5884,7 +5908,7 @@
+         if (!session || session->imageData()->isStackedImageEmpty())
+         {
+             sendResponse(commands[NEW_POSTPROCESS_STATE],
+-                         QJsonObject{{"state", "error"},
++            QJsonObject{{"state", "error"},
+                 {"message", "No post-processing working image — call postprocess_stack first"}});
+             return;
+         }
+@@ -5893,7 +5917,7 @@
+         if (m_BusyPostProcessSessions.contains(sessionId))
+         {
+             sendResponse(commands[NEW_POSTPROCESS_STATE],
+-                         QJsonObject{{"state", "busy"}, {"sessionId", sessionId}});
++            QJsonObject{{"state", "busy"}, {"sessionId", sessionId}});
+             return;
+         }
+ 
+@@ -5927,7 +5951,7 @@
+         if (!ok || curves.isEmpty())
+         {
+             sendResponse(commands[NEW_POSTPROCESS_STATE],
+-                         QJsonObject{{"state", "error"}, {"sessionId", sessionId},
++            QJsonObject{{"state", "error"}, {"sessionId", sessionId},
+                 {"message", ok ? QStringLiteral("No curve could be derived") : curveError}});
+             return;
+         }
 diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/focus/aberrationinspector.h kstars/kstars/ekos/focus/aberrationinspector.h
 --- kstars_stable/kstars/ekos/focus/aberrationinspector.h	2026-10-01 15:21:26.000000000 +0300
-+++ kstars/kstars/ekos/focus/aberrationinspector.h	2026-10-03 06:17:00.000000000 +0300
++++ kstars/kstars/ekos/focus/aberrationinspector.h	2026-10-10 10:53:30.000000000 +0300
 @@ -79,7 +79,7 @@
      public:
  
@@ -21,7 +1098,7 @@ diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES
           * @brief create an AberrationInspector with the associated data
 diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/focus/focus.cpp kstars/kstars/ekos/focus/focus.cpp
 --- kstars_stable/kstars/ekos/focus/focus.cpp	2026-10-01 15:21:26.000000000 +0300
-+++ kstars/kstars/ekos/focus/focus.cpp	2026-10-03 06:17:00.000000000 +0300
++++ kstars/kstars/ekos/focus/focus.cpp	2026-10-10 10:53:30.000000000 +0300
 @@ -722,6 +722,9 @@
              disconnect(m_FilterManager.get());
              m_FilterManager.reset();
@@ -61,9 +1138,746 @@ diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES
          // If we are building filter offsets signal AF run is complete
          m_FilterManager->autoFocusComplete(completionState, currentPosition, m_LastSourceAutofocusTemperature,
                                             m_LastSourceAutofocusAlt);
+@@ -5689,7 +5696,8 @@
+ 
+ void Focus::syncTrackingBoxPosition()
+ {
+-    if (m_OpsFocusSettings->focusUseFullField->isChecked() || starCenter.isNull())
++    // The camera may have been removed while a frame was being processed
++    if (m_Camera == nullptr || m_OpsFocusSettings->focusUseFullField->isChecked() || starCenter.isNull())
+         return;
+ 
+     ISD::CameraChip *targetChip = m_Camera->getChip(ISD::CameraChip::PRIMARY_CCD);
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/guide/guide.cpp kstars/kstars/ekos/guide/guide.cpp
+--- kstars_stable/kstars/ekos/guide/guide.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/guide/guide.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -1948,8 +1948,8 @@
+         // tracking being off--the guide star will run away at the sidereal rate. Loudly warn instead
+         // of silently escalating pulses, since the underlying cause is a mount/driver problem, not guiding.
+         const QString message = (newState == ISD::Mount::MOUNT_ERROR)
+-                                 ? i18n("Mount reports an error while guiding is active. Guide corrections may not reach the mount.")
+-                                 : i18n("Mount has stopped tracking while guiding is active. Guide corrections cannot compensate for lost tracking.");
++                                ? i18n("Mount reports an error while guiding is active. Guide corrections may not reach the mount.")
++                                : i18n("Mount has stopped tracking while guiding is active. Guide corrections cannot compensate for lost tracking.");
+         appendLogText(message);
+         KSNotification::event(QLatin1String("GuideFailed"), message, KSNotification::Guide, KSNotification::Alert);
+     }
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/manager.cpp kstars/kstars/ekos/manager.cpp
+--- kstars_stable/kstars/ekos/manager.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/manager.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -2377,6 +2377,11 @@
+         {
+             m_PortSelector.reset(new Selector::Dialog(KStars::Instance()));
+             connect(m_PortSelector.get(), &Selector::Dialog::accepted, this, &Manager::setPortSelectionComplete);
++            // However the dialog is closed (locally or via EkosLive invoke_method), tell clients to close theirs.
++            connect(m_PortSelector.get(), &Selector::Dialog::finished, this, [this]()
++            {
++                ekosLiveClient.get()->message()->requestPortSelection(false);
++            });
+         }
+         m_PortSelectorTimer.start();
+         portSelectorB->setEnabled(true);
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/profileeditor.cpp kstars/kstars/ekos/profileeditor.cpp
+--- kstars_stable/kstars/ekos/profileeditor.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/profileeditor.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -652,8 +652,8 @@
+     if (ui->localMode->isChecked() && !isDriverLocallyAvailable(driverInfo))
+     {
+         KSNotification::error(i18n("<b>%1</b> is only available as a <b>Remote</b> driver and is not installed "
+-                                    "locally. It cannot be added to a Local profile. Switch to a Remote profile "
+-                                    "or install the driver locally.", driverLabel));
++                                   "locally. It cannot be added to a Local profile. Switch to a Remote profile "
++                                   "or install the driver locally.", driverLabel));
+         return;
+     }
+ 
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/scheduler/scheduler.cpp kstars/kstars/ekos/scheduler/scheduler.cpp
+--- kstars_stable/kstars/ekos/scheduler/scheduler.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/scheduler/scheduler.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -2741,12 +2741,27 @@
+ 
+ void Scheduler::refreshOpticalTrain()
+ {
++    fillOpticalTrainCombo(OpticalTrainManager::Instance()->getTrainNames());
++}
++
++void Scheduler::fillOpticalTrainCombo(const QStringList &trainNames)
++{
++    // This runs on every INDI state change and optical train update, e.g. several times
++    // when the scheduler starts. Keep the user's selection across the rebuild, otherwise
++    // the job editor silently falls back to "--" and applying an edit would clear the
++    // job's train.
++    const QString selectedTrain = opticalTrainCombo->currentText();
++
+     opticalTrainCombo->blockSignals(true);
+     opticalTrainCombo->clear();
+     opticalTrainCombo->addItem("--");
+-    opticalTrainCombo->addItems(OpticalTrainManager::Instance()->getTrainNames());
++    opticalTrainCombo->addItems(trainNames);
++
++    // Fall back to "--" if the selected train no longer exists.
++    const int index = opticalTrainCombo->findText(selectedTrain);
++    opticalTrainCombo->setCurrentIndex(index >= 0 ? index : 0);
+     opticalTrainCombo->blockSignals(false);
+-};
++}
+ 
+ void Scheduler::setFramingAssistantEnabled(bool enabled)
+ {
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/ekos/scheduler/scheduler.h kstars/kstars/ekos/scheduler/scheduler.h
+--- kstars_stable/kstars/ekos/scheduler/scheduler.h	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/ekos/scheduler/scheduler.h	2026-10-10 10:53:30.000000000 +0300
+@@ -554,6 +554,13 @@
+         void refreshOpticalTrain();
+ 
+         /**
++         * @brief fillOpticalTrainCombo Rebuild the optical train selection from the given train names,
++         * keeping the current selection if that train still exists, otherwise selecting "--".
++         * @param trainNames names of the available optical trains
++         */
++        void fillOpticalTrainCombo(const QStringList &trainNames);
++
++        /**
+          * @brief checkJobInputComplete Check if all inputs are filled such that a new job could be added.
+          */
+         void checkJobInputComplete();
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/fitsdata.cpp kstars/kstars/fitsviewer/fitsdata.cpp
+--- kstars_stable/kstars/fitsviewer/fitsdata.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/fitsdata.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -1699,7 +1699,7 @@
+         const bool curveOk = haveSharedCurve
+                              ? CurveOperation::apply(m_StackedImageMat, params.points, inputMin, inputMax, error)
+                              : CurveOperation::applyPerChannel(m_StackedImageMat, params.channelPoints, inputMin,
+-                                     inputMax, error);
++                                 inputMax, error);
+         if (!curveOk)
+         {
+             // All-or-nothing. The autostretch already rewrote the buffer, and the single
+@@ -2594,7 +2594,7 @@
+         if (!wcsHasPlateSolution(m_StackWCSHandle))
+         {
+             qCWarning(KSTARS_FITS) << "Align master WCS is stale or invalid at consumption time — "
+-                                   "skipping, next successfully-solved sub can still become align master.";
++                                      "skipping, next successfully-solved sub can still become align master.";
+             return;
+         }
+ 
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/pipeline/autostretch.cpp kstars/kstars/fitsviewer/pipeline/autostretch.cpp
+--- kstars_stable/kstars/fitsviewer/pipeline/autostretch.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/pipeline/autostretch.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -230,7 +230,7 @@
+         for (const auto &channel : channels)
+             all.push_back(&channel);
+         const ChannelParams pooled = computeParams(all, maxInput, static_cast<float>(targetBackground),
+-                                      static_cast<float>(shadowsClipping));
++                                     static_cast<float>(shadowsClipping));
+         std::fill(params.begin(), params.end(), pooled);
+     }
+     else
+@@ -240,7 +240,7 @@
+                                       static_cast<float>(shadowsClipping));
+     }
+ 
+-    const auto sample = [&](const ChannelParams &p)
++    const auto sample = [&](const ChannelParams & p)
+     {
+         QVector<QPointF> points;
+         points.reserve(controlPoints);
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/pipeline/channelblendoperation.cpp kstars/kstars/fitsviewer/pipeline/channelblendoperation.cpp
+--- kstars_stable/kstars/fitsviewer/pipeline/channelblendoperation.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/pipeline/channelblendoperation.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -125,7 +125,7 @@
+     const int cy = height / 2;
+     const cv::Vec2f center = map.at<cv::Vec2f>(cy, cx);
+     const double centerDisplacement = std::sqrt((center[0] - cx) * (center[0] - cx)
+-                                     + (center[1] - cy) * (center[1] - cy));
++                                      + (center[1] - cy) * (center[1] - cy));
+     const double maxCenterDisplacement = std::min(width, height) * 0.5;
+     if (center[0] < 0.0f || centerDisplacement > maxCenterDisplacement)
+     {
+@@ -272,7 +272,10 @@
+     // strided ~200k-sample percentile per input, no full-frame copy.
+     if (normalize)
+     {
+-        for (auto *group : { &redReg, &greenReg, &blueReg })
++        for (auto *group :
++                {
++                    &redReg, &greenReg, &blueReg
++                })
+             for (auto &input : *group)
+                 input.background = robustBackground(input.image);
+     }
+@@ -310,7 +313,7 @@
+                 current++;
+                 if (onProgress)
+                     onProgress(current, total,
+-                              QString("Registered %1 channel input %2/%3").arg(group.name).arg(i + 1).arg(group.inputs->size()));
++                               QString("Registered %1 channel input %2/%3").arg(group.name).arg(i + 1).arg(group.inputs->size()));
+             }
+         }
+     }
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/pipeline/curveoperation.h kstars/kstars/fitsviewer/pipeline/curveoperation.h
+--- kstars_stable/kstars/fitsviewer/pipeline/curveoperation.h	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/pipeline/curveoperation.h	2026-10-10 10:53:30.000000000 +0300
+@@ -119,9 +119,9 @@
+             float x1, y1, m1;
+         };
+ 
+-        static bool buildSegments(const QVector<QPointF> &controlPoints, std::vector<Segment> &segments,
++        static bool buildSegments(const QVector < QPointF > &controlPoints, std::vector < Segment > &segments,
+                                   QString &error);
+-        static float evaluate(const std::vector<Segment> &segments, float x);
++        static float evaluate(const std::vector < Segment > &segments, float x);
+         /**
+          * @brief Apply one curve to one single-channel image, remapping each pixel from
+          * the `inputMin`-anchored range onto the curve's normalized x first.
+@@ -131,7 +131,7 @@
+          * identity — subtracting 0 and multiplying by 1 — so they keep their original
+          * behavior bit-for-bit.
+          */
+-        static bool applyToChannel(cv::Mat &channel, const QVector<QPointF> &controlPoints,
++        static bool applyToChannel(cv::Mat &channel, const QVector < QPointF > &controlPoints,
+                                    float inputMin, float invRange, QString &error);
+ 
+         // Shared precondition checks: non-empty and CV_32F.
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/pipeline/directoryinspector.cpp kstars/kstars/fitsviewer/pipeline/directoryinspector.cpp
+--- kstars_stable/kstars/fitsviewer/pipeline/directoryinspector.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/pipeline/directoryinspector.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -192,7 +192,7 @@
+     for (const auto &subdirInfo : directory.entryInfoList(subdirFilter, QDir::Name))
+     {
+         QString childRelativePath = relativePath.isEmpty() ? subdirInfo.fileName()
+-                                     : relativePath + '/' + subdirInfo.fileName();
++                                    : relativePath + '/' + subdirInfo.fileName();
+         DirectoryNode child = buildNode(QDir(subdirInfo.absoluteFilePath()), childRelativePath);
+ 
+         node.totalFileCount += child.totalFileCount;
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/pipeline/masterbuilder.cpp kstars/kstars/fitsviewer/pipeline/masterbuilder.cpp
+--- kstars_stable/kstars/fitsviewer/pipeline/masterbuilder.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/pipeline/masterbuilder.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -438,7 +438,7 @@
+     cv::Mat master;
+     int usedCount = 0;
+     if (!build(dir, type, master, error, lowSigma, highSigma, subtractPath, matchExptime, exptimeTolerance, &usedCount,
+-              onProgress, isCancelled, outCancelled))
++               onProgress, isCancelled, outCancelled))
+         return false;
+ 
+     if (outMaster)
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/pipeline/stackcontroller.cpp kstars/kstars/fitsviewer/pipeline/stackcontroller.cpp
+--- kstars_stable/kstars/fitsviewer/pipeline/stackcontroller.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/pipeline/stackcontroller.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -216,6 +216,16 @@
+             starsDetected, starsMatched);
+ }
+ 
++SSolver::Parameters StackController::solverParameters()
++{
++    const QList<SSolver::Parameters> parametersList = Ekos::getDefaultAlignOptionsProfiles();
++    if (parametersList.isEmpty())
++        return SSolver::Parameters();
++
++    const uint index = Options::solveOptionsProfile();
++    return parametersList.at(index < static_cast<uint>(parametersList.size()) ? index : 0);
++}
++
+ void StackController::handlePlateSolveSub(const double ra, const double dec, const double pixScale, const int index,
+         const int healpix, const StackFrameWeighting &weighting)
+ {
+@@ -235,7 +245,7 @@
+ void StackController::runExtract(const double ra, const double dec, const double pixScale, const int index,
+                                  const int healpix)
+ {
+-    auto parameters = Ekos::getDefaultAlignOptionsProfiles().at(Options::solveOptionsProfile());
++    auto parameters = solverParameters();
+     const double lowerPixScale = (index == -1) ? pixScale * 0.8 : pixScale * 0.95;
+     const double upperPixScale = (index == -1) ? pixScale * 1.2 : pixScale * 1.05;
+     if (index != -1)
+@@ -254,7 +264,7 @@
+ void StackController::runSolve(const double ra, const double dec, const double pixScale, const int index,
+                                const int healpix)
+ {
+-    auto parameters = Ekos::getDefaultAlignOptionsProfiles().at(Options::solveOptionsProfile());
++    auto parameters = solverParameters();
+     double lowerPixScale, upperPixScale;
+     if (index == -1)
+     {
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/pipeline/stackcontroller.h kstars/kstars/fitsviewer/pipeline/stackcontroller.h
+--- kstars_stable/kstars/fitsviewer/pipeline/stackcontroller.h	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/pipeline/stackcontroller.h	2026-10-10 10:53:30.000000000 +0300
+@@ -22,6 +22,10 @@
+ {
+ struct Solution;
+ }
++namespace SSolver
++{
++class Parameters;
++}
+ class FITSData;
+ class SolverUtils;
+ struct wcsprm;
+@@ -200,6 +204,14 @@
+                                          QString &error, int &starsDetected, int &starsMatched);
+ 
+         /**
++         * @brief Solver parameters used to plate solve subs: the default Align profile
++         * selected by Options::solveOptionsProfile(). That index belongs to the Align
++         * module's profile list, which can hold more profiles than the defaults, so the
++         * first default profile is used when the index is out of range.
++         */
++        static SSolver::Parameters solverParameters();
++
++        /**
+          * @brief Access the underlying FITSData for the current session,
+          * e.g. to read back the stacked buffer or save it to disk.
+          */
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/pipeline/stackmemoryestimator.cpp kstars/kstars/fitsviewer/pipeline/stackmemoryestimator.cpp
+--- kstars_stable/kstars/fitsviewer/pipeline/stackmemoryestimator.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/pipeline/stackmemoryestimator.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -143,7 +143,10 @@
+     const int minBatch = minFirstBatch(config.method, files);
+     const double engine = engineFrames(config) * std::max(1, channelStacks);
+ 
+-    for (StackDownscale downscale : { StackDownscale::NONE, StackDownscale::X2, StackDownscale::X3, StackDownscale::X4 })
++    for (StackDownscale downscale :
++            {
++                StackDownscale::NONE, StackDownscale::X2, StackDownscale::X3, StackDownscale::X4
++            })
+     {
+         Option option;
+         option.downscale = downscale;
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/platesolve.cpp kstars/kstars/fitsviewer/platesolve.cpp
+--- kstars_stable/kstars/fitsviewer/platesolve.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/platesolve.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -142,8 +142,7 @@
+ 
+ void PlateSolve::setupSolver(const QSharedPointer<FITSData> &imageData, bool extractOnly)
+ {
+-    auto parameters = getSSolverParametersList(static_cast<Ekos::ProfileGroup>(Options::fitsSolverModule())).at(
+-                          kcfg_FitsSolverProfile->currentIndex());
++    auto parameters = getSelectedSolverParameters();
+     parameters.search_radius = kcfg_FitsSolverRadius->value();
+     if (extractOnly)
+     {
+@@ -278,8 +277,7 @@
+     if (m_Solver.get() && m_Solver->isRunning())
+         m_Solver->abort();
+ 
+-    auto parameters = getSSolverParametersList(static_cast<Ekos::ProfileGroup>(Options::fitsSolverModule())).at(
+-                          kcfg_FitsSolverProfile->currentIndex());
++    auto parameters = getSelectedSolverParameters();
+ 
+     double lowerPixScale, upperPixScale;
+     if (index == -1)
+@@ -604,6 +602,19 @@
+     KStars::Instance()->raise();
+ }
+ 
++// Returns the solver parameters of the profile selected in the profiles combo box. If the combo box
++// has no valid selection the first profile is used, so the profile list is never indexed out of range.
++SSolver::Parameters PlateSolve::getSelectedSolverParameters()
++{
++    const QList<SSolver::Parameters> parametersList =
++        getSSolverParametersList(static_cast<Ekos::ProfileGroup>(Options::fitsSolverModule()));
++    if (parametersList.isEmpty())
++        return SSolver::Parameters();
++
++    const int index = kcfg_FitsSolverProfile->currentIndex();
++    return parametersList.at((index >= 0 && index < parametersList.size()) ? index : 0);
++}
++
+ // Each module can default to its own profile index. These two methods retrieves and saves
+ // the values in a JSON string using an Options variable.
+ int PlateSolve::getProfileIndex(int moduleIndex)
+@@ -664,8 +675,16 @@
+ 
+     m_ProfileEditor->setProfileGroup(profileGroup, false);
+ 
+-    // Restore the stored options.
+-    kcfg_FitsSolverProfile->setCurrentIndex(getProfileIndex(Options::fitsSolverModule()));
++    // Restore the stored options. The stored index may not exist in the current list of profiles,
++    // e.g. after profiles were removed, so fall back to the first profile rather than leaving the
++    // combo box with no selection, and store the corrected index.
++    int profileIndex = getProfileIndex(Options::fitsSolverModule());
++    if (profileIndex < 0 || profileIndex >= kcfg_FitsSolverProfile->count())
++    {
++        profileIndex = 0;
++        setProfileIndex(moduleIndex, profileIndex);
++    }
++    kcfg_FitsSolverProfile->setCurrentIndex(profileIndex);
+ 
+     m_ProfileEditorPage->setHeader(QString("FITS Viewer Solver %1 Profiles Editor")
+                                    .arg(Ekos::ProfileGroupNames[moduleIndex].toString()));
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/fitsviewer/platesolve.h kstars/kstars/fitsviewer/platesolve.h
+--- kstars_stable/kstars/fitsviewer/platesolve.h	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/fitsviewer/platesolve.h	2026-10-10 10:53:30.000000000 +0300
+@@ -78,6 +78,7 @@
+         void setupProfiles(int profileIndex);
+         int getProfileIndex(int moduleIndex);
+         void setProfileIndex(int moduleIndex, int profileIndex);
++        SSolver::Parameters getSelectedSolverParameters();
+         void loadFileDone();
+         void centerOnSkymap();
+         void overlayImage();
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/hips/hipsmanager.cpp kstars/kstars/hips/hipsmanager.cpp
+--- kstars_stable/kstars/hips/hipsmanager.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/hips/hipsmanager.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -18,10 +18,12 @@
+ 
+ #include <KConfigDialog>
+ 
++#include <QDir>
+ #include <QTime>
+ #include <QHash>
+ #include <QNetworkDiskCache>
+ #include <QPainter>
++#include <QRegularExpression>
+ 
+ static QNetworkDiskCache *g_discCache = nullptr;
+ static UrlFileDownload *g_download = nullptr;
+@@ -46,9 +48,7 @@
+         _HIPSManager = new HIPSManager();
+ 
+         // We should read offline sources on startup
+-        QDir hipsDirectory(Options::hIPSOfflinePath());
+-        auto orders = hipsDirectory.entryList(QDir::AllDirs | QDir::NoDotAndDotDot);
+-        HIPSManager::Instance()->setOfflineLevels(orders);
++        _HIPSManager->loadOfflineLevels(Options::hIPSOfflinePath());
+ 
+         if (Options::hIPSUseOfflineSource())
+             _HIPSManager->setCurrentSource(Options::hIPSSource());
+@@ -114,9 +114,7 @@
+ {
+     if (Options::hIPSUseOfflineSource())
+     {
+-        QDir hipsDirectory(Options::hIPSOfflinePath());
+-        auto orders = hipsDirectory.entryList(QDir::AllDirs | QDir::NoDotAndDotDot);
+-        HIPSManager::Instance()->setOfflineLevels(orders);
++        loadOfflineLevels(Options::hIPSOfflinePath());
+         _HIPSManager->setCurrentSource(Options::hIPSSource());
+     }
+ 
+@@ -490,41 +488,63 @@
+ }
+ 
+ // Extract which levels are available for offline use.
+-void HIPSManager::setOfflineLevels(const QStringList &value)
++QMap<int, int> HIPSManager::computeOfflineLevels(const QStringList &directories)
+ {
+-    for (auto oneLevel : value)
++    constexpr int maxOrder = 20;
++    QMap<int, int> levels;
++
++    for (const auto &oneLevel : directories)
+     {
+-        if (oneLevel.startsWith("Norder"))
+-        {
+-            oneLevel.remove("Norder");
+-            auto level =  oneLevel.toUInt();
+-            m_OfflineLevelsMap[level] = level;
+-        }
++        if (!oneLevel.startsWith("Norder"))
++            continue;
++
++        bool ok = false;
++        const int level = oneLevel.mid(6).toInt(&ok);
++        if (ok && level >= 0 && level <= maxOrder)
++            levels[level] = level;
+     }
+ 
+     // In case we don't have offline maps, fill all levels with 1
+-    if (m_OfflineLevelsMap.isEmpty())
++    if (levels.isEmpty())
+     {
+-        for (int i = 0; i <= 20; i++)
+-            m_OfflineLevelsMap[i] = 1;
+-        return;
++        for (int i = 0; i <= maxOrder; i++)
++            levels[i] = 1;
++        return levels;
+     }
+ 
+-    // Now let's map all the missing levels, if any
+-    for (int i = 0; i <= 20; i++)
++    // Now let's map all the missing levels to the closest available higher level, or the highest one.
++    const QList<int> available = levels.keys();
++    for (int i = 0; i <= maxOrder; i++)
+     {
+-        // Find closest level
+-        if (m_OfflineLevelsMap.contains(i) == false)
+-        {
+-            const auto keys = m_OfflineLevelsMap.keys();
+-            const auto values = m_OfflineLevelsMap.values();
+-            auto it = std::upper_bound(keys.constBegin(), keys.constEnd(), i);
+-            if (it != keys.end())
+-                m_OfflineLevelsMap[i] = *it;
+-            else
+-                m_OfflineLevelsMap[i] = values.last();
++        if (levels.contains(i))
++            continue;
+ 
+-        }
++        auto it = std::upper_bound(available.constBegin(), available.constEnd(), i);
++        levels[i] = (it != available.constEnd()) ? *it : available.last();
++    }
++
++    return levels;
++}
++
++void HIPSManager::setOfflineLevels(const QStringList &value)
++{
++    // Replace the whole map. Merging into the previous map would keep stale levels
++    // (e.g. the "all levels map to 1" fallback) after the offline path is changed.
++    m_OfflineLevelsMap = computeOfflineLevels(value);
++}
++
++void HIPSManager::loadOfflineLevels(const QString &path)
++{
++    QDir hipsDirectory(path);
++    const auto orders = hipsDirectory.entryList(QDir::AllDirs | QDir::NoDotAndDotDot);
++    setOfflineLevels(orders);
++
++    if (Options::hIPSUseOfflineSource())
++    {
++        if (path.isEmpty() || !hipsDirectory.exists())
++            qCWarning(KSTARS) << "HiPS offline source is enabled but the offline path does not exist:" << path;
++        else if (orders.filter(QRegularExpression("^Norder\\d+$")).isEmpty())
++            qCWarning(KSTARS) << "HiPS offline source is enabled but no Norder* directories were found in" << path;
+     }
+ }
+ 
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/hips/hipsmanager.h kstars/kstars/hips/hipsmanager.h
+--- kstars_stable/kstars/hips/hipsmanager.h	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/hips/hipsmanager.h	2026-10-10 10:53:30.000000000 +0300
+@@ -95,8 +95,27 @@
+         {
+             return m_uid;
+         }
++        /**
++         * @brief setOfflineLevels Replace the offline level map from the given directory names.
++         * @param value Directory entries of the offline storage path (e.g. "Norder3", "Norder5").
++         */
+         void setOfflineLevels(const QStringList &value);
+ 
++        /**
++         * @brief loadOfflineLevels Scan an offline HiPS storage directory and update the offline level map.
++         * Logs a warning if the offline source is enabled but the directory is missing or has no Norder* levels.
++         * @param path Offline HiPS storage path.
++         */
++        void loadOfflineLevels(const QString &path);
++
++        /**
++         * @brief computeOfflineLevels Map every HiPS order 0-20 to an order that is available offline.
++         * A missing order is mapped to the next higher available one, or to the highest available one.
++         * @param directories Directory entries of the offline storage path. Only "Norder<N>" entries are used.
++         * @return Map of requested order to usable order. If no order is available, all orders map to 1.
++         */
++        static QMap<int, int> computeOfflineLevels(const QStringList &directories);
++
+     public Q_SLOTS:
+         bool setCurrentSource(const QString &title);
+         void showSettings();
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/hips/opships.cpp kstars/kstars/hips/opships.cpp
+--- kstars_stable/kstars/hips/opships.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/hips/opships.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -47,9 +47,7 @@
+ 
+         kcfg_HIPSOfflinePath->setText(dir);
+ 
+-        QDir hipsDirectory(dir);
+-        auto orders = hipsDirectory.entryList(QDir::AllDirs | QDir::NoDotAndDotDot);
+-        HIPSManager::Instance()->setOfflineLevels(orders);
++        HIPSManager::Instance()->loadOfflineLevels(dir);
+         HIPSManager::Instance()->setCurrentSource("DSS Colored");
+     });
+ }
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/indi/indistd.cpp kstars/kstars/indi/indistd.cpp
+--- kstars_stable/kstars/indi/indistd.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/indi/indistd.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -506,12 +506,12 @@
+         {
+             m_LocationSyncRetries++;
+             qCWarning(KSTARS_INDI) << "GEOGRAPHIC_COORD update for" << getDeviceName() << "was rejected by the driver, retrying"
+-                                    << m_LocationSyncRetries << "/" << MAX_SYNC_RETRIES;
++                                   << m_LocationSyncRetries << "/" << MAX_SYNC_RETRIES;
+             updateLocation();
+         }
+         else
+             qCWarning(KSTARS_INDI) << "Giving up on GEOGRAPHIC_COORD update for" << getDeviceName()
+-                                    << "after" << MAX_SYNC_RETRIES << "attempts.";
++                                   << "after" << MAX_SYNC_RETRIES << "attempts.";
+     }
+     else if (nvp.isNameMatch("WATCHDOG_HEARTBEAT"))
+     {
+@@ -629,12 +629,12 @@
+         {
+             m_TimeSyncRetries++;
+             qCWarning(KSTARS_INDI) << "TIME_UTC update for" << getDeviceName() << "was rejected by the driver, retrying"
+-                                    << m_TimeSyncRetries << "/" << MAX_SYNC_RETRIES;
++                                   << m_TimeSyncRetries << "/" << MAX_SYNC_RETRIES;
+             updateTime();
+         }
+         else
+             qCWarning(KSTARS_INDI) << "Giving up on TIME_UTC update for" << getDeviceName()
+-                                    << "after" << MAX_SYNC_RETRIES << "attempts.";
++                                   << "after" << MAX_SYNC_RETRIES << "attempts.";
+     }
+ 
+     Q_EMIT propertyUpdated(prop);
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/kstarsactions.cpp kstars/kstars/kstarsactions.cpp
+--- kstars_stable/kstars/kstarsactions.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/kstarsactions.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -1273,6 +1273,11 @@
+ //Set Time to CPU clock
+ void KStars::slotSetTimeToNow()
+ {
++    // Can be called over D-Bus before the sky map is created or after it is deleted.
++    // Changing the time updates sky objects, which also requires the sky map.
++    if (map() == nullptr)
++        return;
++
+     data()->changeDateTime(KStarsDateTime::currentDateTimeUtc());
+ 
+     if (Options::useAltAz())
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/kstars.cpp kstars/kstars/kstars.cpp
+--- kstars_stable/kstars/kstars.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/kstars.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -105,81 +105,6 @@
+                                            "/../PlugIns/phonon4qt5_backend/phonon_vlc.so").absolutePath();
+         qputenv("PHONON_BACKEND", phonon_backend_path.toLatin1());
+ #endif
+-
+-        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+-        QString path            = env.value("PATH", "");
+-        env.insert("PATH", "/usr/bin:/usr/local/bin:\"" + QCoreApplication::applicationDirPath() + "\":" + path);
+-
+-        qDebug("Trying to Setup DBus");
+-
+-        QProcess dbusCheck;
+-        dbusCheck.setProcessEnvironment(env);
+-
+-        QString pluginsDir = QDir(QCoreApplication::applicationDirPath() + "/../PlugIns").absolutePath();
+-        QString loadDBusPlist  = pluginsDir + "/dbus/org.freedesktop.dbus-kstars.plist";
+-        QString destPath = QDir::homePath() + "/Library/LaunchAgents";
+-        QString saveDBusPlist = destPath + "/org.freedesktop.dbus-kstars.plist";
+-        QFile file(loadDBusPlist);
+-        if (file.open(QIODevice::ReadOnly))
+-        {
+-            QTextStream in(&file);
+-            QString pListText = in.readAll();
+-            file.close();
+-            int programArgsLeft         = pListText.indexOf("<key>ProgramArguments</key>");
+-            int programArgsRight        = pListText.indexOf("</array>", programArgsLeft) + 8 - programArgsLeft;
+-            QString currentProgramArgs  = pListText.mid(programArgsLeft, programArgsRight);
+-            QString newProgramArguments = ""
+-                                          "<key>ProgramArguments</key>\n"
+-                                          "    <array>\n"
+-                                          "        <string>" +
+-                                          QCoreApplication::applicationDirPath() +
+-            "/dbus-daemon</string>\n"
+-            "        <string>--nofork</string>\n"
+-            "        <string>--config-file=" +
+-                                          pluginsDir +
+-            "/dbus/kstars.conf</string>\n"
+-            "    </array>";
+-            pListText.replace(currentProgramArgs, newProgramArguments);
+-            QDir destDir(destPath);
+-            if(!destDir.exists())
+-                destDir.mkpath(destPath);
+-            QFile file2(saveDBusPlist);
+-            if (file2.open(QIODevice::WriteOnly))
+-            {
+-                QTextStream stream(&file2);
+-                stream << pListText;
+-                file2.close();
+-
+-                if(dbusCheck.execute("chmod", QStringList() << "775" << saveDBusPlist ) != 0)
+-                {
+-                    qDebug() << "Attempted Command: chmod " << QStringList() << "775" << saveDBusPlist;
+-                    qDebug("Error Code: %d", dbusCheck.exitCode());
+-                    qDebug() << "Output: \n" << dbusCheck.readAllStandardOutput();
+-                    exit(1);
+-                }
+-
+-                qDebug("DBus Setup Succeeded.  Trying to Start DBus");
+-
+-                if(dbusCheck.execute("launchctl", QStringList() << "load" << "-w" << saveDBusPlist) != 0)
+-                {
+-                    qDebug() << "Attempted Command: launchctl " << QStringList() << "load" << "-w" << saveDBusPlist;
+-                    qDebug("Error Code: %d", dbusCheck.exitCode());
+-                    qDebug() << "Output: \n" << dbusCheck.readAllStandardOutput();
+-                    exit(1);
+-                }
+-
+-                qDebug("DBus Started");
+-
+-            }
+-            else
+-            {
+-                qDebug("DBus File Write Error");
+-            }
+-        }
+-        else
+-        {
+-            qDebug("DBus File Read Error");
+-        }
+     }
+ #endif
+ 
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/main.cpp kstars/kstars/main.cpp
+--- kstars_stable/kstars/main.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/main.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -43,6 +43,7 @@
+ 
+ #if defined(Q_OS_MACOS)
+ #include <ksnotification.h>
++#include <QMessageBox>
+ #endif
+ 
+ #include <QApplication>
+@@ -106,6 +107,18 @@
+ #endif
+ 
+ #ifdef Q_OS_MACOS
++    // Start the bundled D-Bus session bus before anything (KDBusService in particular) connects to it,
++    // otherwise KStars exits on first launch or waits forever for a bus that never answers.
++    QString dbusLogPath;
++    if (!KSUtils::setupMacDBus(&dbusLogPath))
++    {
++        QMessageBox::critical(nullptr, i18n("KStars"),
++                              i18n("KStars could not start its D-Bus session bus and cannot run without it.\n\n"
++             "Details may be found in %1. You can also check the service status with:\n"
++             "launchctl print gui/$(id -u)/org.freedesktop.dbus-kstars", dbusLogPath));
++        return 1;
++    }
++
+     //Note, this function will return true on OS X if the data directories are good to go.  If not, quit with error code 1!
+     if (!KSUtils::setupMacKStarsIfNeeded())
+     {
+@@ -444,7 +457,7 @@
+     };
+ 
+     QObject::connect(&dbusService, &KDBusService::activateRequested, &app,
+-                     [openRequestedFiles](const QStringList &arguments, const QString &workingDirectory)
++                     [openRequestedFiles](const QStringList & arguments, const QString & workingDirectory)
+     {
+         Q_UNUSED(workingDirectory);
+ 
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/oal/equipmentwriter.cpp kstars/kstars/oal/equipmentwriter.cpp
+--- kstars_stable/kstars/oal/equipmentwriter.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/oal/equipmentwriter.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -326,7 +326,7 @@
+         ui.f_LockedFilter->text(), 0, Ekos::INVALID_VALUE, Ekos::INVALID_VALUE,
+         ui.f_FocusDatetime->dateTime().toString(DATETIME_FORMAT),
+         ui.f_FocusTicksPerTemp->value(), ui.f_FocusTicksPerAlt->value(), ui.f_Wavelength->value());
+-    KStarsData::Instance()->userdb()->AddFilter(fp, ui.f_Vendor->text());
++    KStarsData::Instance()->userdb()->AddFilter(fp);
+ 
+     loadEquipment();
+     ui.f_Id->clear();
 diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/skyobjects/skypoint.cpp kstars/kstars/skyobjects/skypoint.cpp
 --- kstars_stable/kstars/skyobjects/skypoint.cpp	2026-10-01 15:21:26.000000000 +0300
-+++ kstars/kstars/skyobjects/skypoint.cpp	2026-10-03 06:17:00.000000000 +0300
++++ kstars/kstars/skyobjects/skypoint.cpp	2026-10-10 10:53:30.000000000 +0300
 @@ -22,6 +22,7 @@
  
  #include <QDebug>
@@ -98,3 +1912,58 @@ diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES
  }
  
  void SkyPoint::precess(const KSNumbers *num)
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/skyqpainter.cpp kstars/kstars/skyqpainter.cpp
+--- kstars_stable/kstars/skyqpainter.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/skyqpainter.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -849,6 +849,9 @@
+     else
+     {
+         m_HiPSImage.reset(new QImage(w, h, QImage::Format_ARGB32_Premultiplied));
++        // QImage does not initialize its pixel buffer. Tiles that are missing or still loading leave
++        // their area untouched, so clear it to avoid drawing uninitialized memory as noise.
++        m_HiPSImage->fill(Qt::transparent);
+         bool rendered     = m_hipsRender->render(w, h, m_HiPSImage.data(), m_proj);
+         if (rendered)
+             drawImage(viewport(), *m_HiPSImage.data());
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/kstars/tools/horizonmanager.cpp kstars/kstars/tools/horizonmanager.cpp
+--- kstars_stable/kstars/tools/horizonmanager.cpp	2026-10-01 15:21:26.000000000 +0300
++++ kstars/kstars/tools/horizonmanager.cpp	2026-10-10 10:53:30.000000000 +0300
+@@ -371,7 +371,9 @@
+ {
+     setSelectPoints(false);
+     terminateLivePreview();
+-    SkyMap::Instance()->forceUpdate();
++    // On quit, the dialog may be closed after the sky map has already been deleted
++    if (SkyMap::Instance())
++        SkyMap::Instance()->forceUpdate();
+ }
+ 
+ void HorizonManager::slotSaveChanges()
+diff -urN '--exclude=.git*' '--exclude=po' '--exclude=Tests' '--exclude=LICENSES' kstars_stable/packaging/linux/debian/control kstars/packaging/linux/debian/control
+--- kstars_stable/packaging/linux/debian/control	2026-10-01 15:21:26.000000000 +0300
++++ kstars/packaging/linux/debian/control	2026-10-10 10:53:30.000000000 +0300
+@@ -19,19 +19,23 @@
+                libqt6sql6-sqlite,
+                kdoctools-dev | libkf6doctools-dev,
+                libkf6config-dev,
++               libkf6configwidgets-dev,
++               libkf6dbusaddons-dev,
+                libkf6guiaddons-dev,
+                libkf6i18n-dev,
++               libkf6kio-dev,
+                libkf6newstuff-dev,
+                libkf6notifications-dev,
+                libkf6xmlgui-dev,
+                libkf6plotting-dev,
+                libkf6crash-dev,
+                libkf6notifyconfig-dev,
++               libkf6widgetsaddons-dev,
+                libeigen3-dev,
+                zlib1g-dev,
+                libcfitsio3-dev | libcfitsio-dev,
+                libnova-dev,
+-               libindi-dev (>= 1.6.1),
++               libindi-dev (>= 2.0.0),
+                indi-bin (>= 1.6.1),
+                wcslib-dev,
+                libraw-dev,
