@@ -407,7 +407,7 @@
                         "type": "anitya",
                         "project-id": 16245,
                         "stable-only": true,
-                        "url-template": "https://github.com/zeromq/libzmq/releases/download/$version/zeromq-$version.tar.gz"
+                        "url-template": "https://github.com/zeromq/libzmq/releases/download/v$version/zeromq-$version.tar.gz"
                     }
                 }
             ]
