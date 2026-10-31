@@ -579,7 +579,7 @@
                         "type": "anitya",
                         "project-id": 6838,
                         "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/indilib/indi/archive/refs/tags/v$version.tar.gz"
                     }
                 }
             ]
@@ -601,7 +601,7 @@
                         "type": "anitya",
                         "project-id": 242076,
                         "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v$version.tar.gz"
                     }
                 }
             ]
@@ -627,7 +627,7 @@
                         "type": "anitya",
                         "project-id": 242076,
                         "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v$version.tar.gz"
                     }
                 }
             ]
