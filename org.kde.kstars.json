@@ -565,6 +565,55 @@
             ]
         },
         {
+            "name": "mosquitto",
+            "buildsystem": "cmake-ninja",
+            "config-opts": [
+                "-DWITH_BROKER=OFF",
+                "-DWITH_CLIENTS=OFF",
+                "-DWITH_APPS=OFF",
+                "-DWITH_PLUGINS=OFF",
+                "-DWITH_DOCS=OFF",
+                "-DWITH_TESTS=OFF",
+                "-DWITH_CTRL_SHELL=OFF"
+            ],
+            "modules": [
+                {
+                    "name": "cjson",
+                    "buildsystem": "cmake-ninja",
+                    "config-opts": [
+                        "-DENABLE_CJSON_TEST=OFF",
+                        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+                    ],
+                    "sources": [
+                        {
+                            "type": "archive",
+                            "url": "https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.19.tar.gz",
+                            "sha256": "7fa616e3046edfa7a28a32d5f9eacfd23f92900fe1f8ccd988c1662f30454562",
+                            "x-checker-data": {
+                                "type": "anitya",
+                                "project-id": 21330,
+                                "stable-only": true,
+                                "url-template": "https://github.com/DaveGamble/cJSON/archive/refs/tags/v$version.tar.gz"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://mosquitto.org/files/source/mosquitto-2.1.2.tar.gz",
+                    "sha256": "fd905380691ac65ea5a93779e8214941829e3d6e038d5edff9eac5fd74cbed02",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 6078,
+                        "stable-only": true,
+                        "url-template": "https://mosquitto.org/files/source/mosquitto-$version.tar.gz"
+                    }
+                }
+            ]
+        },
+        {
             "name": "indi",
             "buildsystem": "cmake-ninja",
             "config-opts": [
