@@ -232,8 +232,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://gitea.nouspiro.space/nou/libXISF/archive/v0.2.13.tar.gz",
-                    "sha256": "1703a8ac4c4f3469e0d4d7b7e7ebff8d6206e73ec97d2669227a1280202e1396",
+                    "url": "https://gitea.nouspiro.space/nou/libXISF/archive/v0.2.15.tar.gz",
+                    "sha256": "dfb8dab89dd56ebb6ffbdc9af1c529e88c590038812cfcd54f6d35c601de0d0a",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 339928,
@@ -407,7 +407,7 @@
                         "type": "anitya",
                         "project-id": 16245,
                         "stable-only": true,
-                        "url-template": "https://github.com/zeromq/libzmq/releases/download/$version/zeromq-$version.tar.gz"
+                        "url-template": "https://github.com/zeromq/libzmq/releases/download/v$version/zeromq-$version.tar.gz"
                     }
                 }
             ]
@@ -628,7 +628,7 @@
                         "type": "anitya",
                         "project-id": 6838,
                         "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/indilib/indi/archive/refs/tags/v$version.tar.gz"
                     }
                 }
             ]
@@ -650,7 +650,7 @@
                         "type": "anitya",
                         "project-id": 242076,
                         "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v$version.tar.gz"
                     }
                 }
             ]
@@ -676,7 +676,7 @@
                         "type": "anitya",
                         "project-id": 242076,
                         "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v$version.tar.gz"
                     }
                 }
             ]
