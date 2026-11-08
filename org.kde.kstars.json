@@ -232,8 +232,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://gitea.nouspiro.space/nou/libXISF/archive/v0.2.15.tar.gz",
-                    "sha256": "dfb8dab89dd56ebb6ffbdc9af1c529e88c590038812cfcd54f6d35c601de0d0a",
+                    "url": "https://gitea.nouspiro.space/nou/libXISF/archive/v0.2.17.tar.gz",
+                    "sha256": "40d193a6351d142ab1fe04d5314227e964f34e415eac24ca07568c1b5847daf2",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 339928,
