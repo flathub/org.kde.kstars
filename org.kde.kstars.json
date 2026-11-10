@@ -129,8 +129,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/rlancaste/stellarsolver/archive/refs/tags/2.8.tar.gz",
-                    "sha256": "1456cac5cd67353e19e1c6e57546af052a9302b7fbe2deaa649a44eec45fbec8",
+                    "url": "https://github.com/rlancaste/stellarsolver/archive/refs/tags/2.9.tar.gz",
+                    "sha256": "8eccfc6fb3fdc6bf95bf9b49a6d609b5bc8d3b8d2a82549562478d674b303da7",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242699,
