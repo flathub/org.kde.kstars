@@ -129,8 +129,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://github.com/rlancaste/stellarsolver/archive/refs/tags/2.8.tar.gz",
-                    "sha256": "1456cac5cd67353e19e1c6e57546af052a9302b7fbe2deaa649a44eec45fbec8",
+                    "url": "https://github.com/rlancaste/stellarsolver/archive/refs/tags/2.9.tar.gz",
+                    "sha256": "8eccfc6fb3fdc6bf95bf9b49a6d609b5bc8d3b8d2a82549562478d674b303da7",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 242699,
@@ -232,8 +232,8 @@
             "sources": [
                 {
                     "type": "archive",
-                    "url": "https://gitea.nouspiro.space/nou/libXISF/archive/v0.2.13.tar.gz",
-                    "sha256": "1703a8ac4c4f3469e0d4d7b7e7ebff8d6206e73ec97d2669227a1280202e1396",
+                    "url": "https://gitea.nouspiro.space/nou/libXISF/archive/v0.2.17.tar.gz",
+                    "sha256": "40d193a6351d142ab1fe04d5314227e964f34e415eac24ca07568c1b5847daf2",
                     "x-checker-data": {
                         "type": "anitya",
                         "project-id": 339928,
@@ -407,7 +407,7 @@
                         "type": "anitya",
                         "project-id": 16245,
                         "stable-only": true,
-                        "url-template": "https://github.com/zeromq/libzmq/releases/download/$version/zeromq-$version.tar.gz"
+                        "url-template": "https://github.com/zeromq/libzmq/releases/download/v$version/zeromq-$version.tar.gz"
                     }
                 }
             ]
@@ -565,6 +565,55 @@
             ]
         },
         {
+            "name": "mosquitto",
+            "buildsystem": "cmake-ninja",
+            "config-opts": [
+                "-DWITH_BROKER=OFF",
+                "-DWITH_CLIENTS=OFF",
+                "-DWITH_APPS=OFF",
+                "-DWITH_PLUGINS=OFF",
+                "-DWITH_DOCS=OFF",
+                "-DWITH_TESTS=OFF",
+                "-DWITH_CTRL_SHELL=OFF"
+            ],
+            "modules": [
+                {
+                    "name": "cjson",
+                    "buildsystem": "cmake-ninja",
+                    "config-opts": [
+                        "-DENABLE_CJSON_TEST=OFF",
+                        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+                    ],
+                    "sources": [
+                        {
+                            "type": "archive",
+                            "url": "https://github.com/DaveGamble/cJSON/archive/refs/tags/v1.7.19.tar.gz",
+                            "sha256": "7fa616e3046edfa7a28a32d5f9eacfd23f92900fe1f8ccd988c1662f30454562",
+                            "x-checker-data": {
+                                "type": "anitya",
+                                "project-id": 21330,
+                                "stable-only": true,
+                                "url-template": "https://github.com/DaveGamble/cJSON/archive/refs/tags/v$version.tar.gz"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://mosquitto.org/files/source/mosquitto-2.1.2.tar.gz",
+                    "sha256": "fd905380691ac65ea5a93779e8214941829e3d6e038d5edff9eac5fd74cbed02",
+                    "x-checker-data": {
+                        "type": "anitya",
+                        "project-id": 6078,
+                        "stable-only": true,
+                        "url-template": "https://mosquitto.org/files/source/mosquitto-$version.tar.gz"
+                    }
+                }
+            ]
+        },
+        {
             "name": "indi",
             "buildsystem": "cmake-ninja",
             "config-opts": [
@@ -579,7 +628,7 @@
                         "type": "anitya",
                         "project-id": 6838,
                         "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/indilib/indi/archive/refs/tags/v$version.tar.gz"
                     }
                 }
             ]
@@ -601,7 +650,7 @@
                         "type": "anitya",
                         "project-id": 242076,
                         "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v$version.tar.gz"
                     }
                 }
             ]
@@ -627,7 +676,7 @@
                         "type": "anitya",
                         "project-id": 242076,
                         "stable-only": true,
-                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/$version.tar.gz"
+                        "url-template": "https://github.com/indilib/indi-3rdparty/archive/refs/tags/v$version.tar.gz"
                     }
                 }
             ]
